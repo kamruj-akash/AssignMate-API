@@ -278,6 +278,7 @@ const acceptBid = async (bidId: string, user: RequestUser) => {
         status: AssignmentStatus.AWAITING_PAYMENT,
         assignedExpertId: bid.expertId,
         acceptedBidId: bid.id,
+        budget: bid.proposedAmount,
       },
     });
 
