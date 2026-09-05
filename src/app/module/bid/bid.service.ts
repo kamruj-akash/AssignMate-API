@@ -116,6 +116,9 @@ const getBidByAssignmentId = async (
         },
       },
     },
+    skip: (page - 1) * limit,
+    take: limit,
+    orderBy: { [sortBy]: sortOrder },
   });
 
   const total = await prisma.assignmentBid.count({
@@ -123,6 +126,8 @@ const getBidByAssignmentId = async (
       assignmentId,
       status: { in: [BidStatus.PENDING, BidStatus.ACCEPTED] },
     },
+    skip: (page - 1) * limit,
+    take: limit,
   });
   const totalPages = Math.ceil(total / limit);
 
@@ -240,6 +245,14 @@ const acceptBid = async (bidId: string, user: RequestUser) => {
   if (!bid) {
     throw new AppError(httpStatus.NOT_FOUND, "Bid not found");
   }
+
+  if (bid.assignment.status !== AssignmentStatus.OPEN) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Cannot accept a bid on a closed assignment",
+    );
+  }
+
   if (bid.assignment.studentId !== existUser.student.id) {
     throw new AppError(
       httpStatus.FORBIDDEN,
@@ -259,30 +272,24 @@ const acceptBid = async (bidId: string, user: RequestUser) => {
     );
   }
   const transaction = await prisma.$transaction(async (tx) => {
-    const claimed = await tx.assignment.updateMany({
+    await tx.assignment.update({
       where: { id: bid.assignmentId, status: AssignmentStatus.OPEN },
       data: {
-        status: AssignmentStatus.ASSIGNED,
+        status: AssignmentStatus.AWAITING_PAYMENT,
         assignedExpertId: bid.expertId,
+        acceptedBidId: bid.id,
       },
     });
 
-    if (claimed.count === 0) {
-      throw new AppError(
-        httpStatus.CONFLICT,
-        "This assignment is no longer open for bids",
-      );
-    }
-
     const acceptedBid = await tx.assignmentBid.update({
-      where: { id: bidId, status: BidStatus.PENDING },
+      where: { id: bid.id, status: BidStatus.PENDING },
       data: { status: BidStatus.ACCEPTED },
     });
 
     await tx.assignmentBid.updateMany({
       where: {
         assignmentId: bid.assignmentId,
-        id: { not: bidId },
+        id: { not: bid.id },
         status: BidStatus.PENDING,
       },
       data: {

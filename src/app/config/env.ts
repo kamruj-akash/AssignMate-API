@@ -24,6 +24,7 @@ const envConfig = {
   resend_api: process.env.RESEND_API as string,
 
   // redis
+  redis_url: process.env.REDIS_URL,
   redis_user: process.env.REDIS_USER,
   redis_pass: process.env.REDIS_PASS,
   redis_host: process.env.REDIS_HOST,

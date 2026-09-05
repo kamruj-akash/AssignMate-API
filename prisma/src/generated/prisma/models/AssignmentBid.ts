@@ -279,7 +279,6 @@ export type AssignmentBidOrderByWithRelationInput = {
 
 export type AssignmentBidWhereUniqueInput = Prisma.AtLeast<{
   id?: string
-  assignmentId_expertId_status?: Prisma.AssignmentBidAssignmentIdExpertIdStatusCompoundUniqueInput
   assignmentId_expertId?: Prisma.AssignmentBidAssignmentIdExpertIdCompoundUniqueInput
   AND?: Prisma.AssignmentBidWhereInput | Prisma.AssignmentBidWhereInput[]
   OR?: Prisma.AssignmentBidWhereInput[]
@@ -296,7 +295,7 @@ export type AssignmentBidWhereUniqueInput = Prisma.AtLeast<{
   assignment?: Prisma.XOR<Prisma.AssignmentScalarRelationFilter, Prisma.AssignmentWhereInput>
   expert?: Prisma.XOR<Prisma.ExpertScalarRelationFilter, Prisma.ExpertWhereInput>
   wonAssignment?: Prisma.XOR<Prisma.AssignmentNullableScalarRelationFilter, Prisma.AssignmentWhereInput> | null
-}, "id" | "assignmentId_expertId_status" | "assignmentId_expertId">
+}, "id" | "assignmentId_expertId">
 
 export type AssignmentBidOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -438,12 +437,6 @@ export type AssignmentBidNullableScalarRelationFilter = {
 
 export type AssignmentBidOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
-}
-
-export type AssignmentBidAssignmentIdExpertIdStatusCompoundUniqueInput = {
-  assignmentId: string
-  expertId: string
-  status: $Enums.BidStatus
 }
 
 export type AssignmentBidAssignmentIdExpertIdCompoundUniqueInput = {

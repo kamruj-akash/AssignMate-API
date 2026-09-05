@@ -8,7 +8,7 @@ CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'BLOCK');
 CREATE TYPE "Role" AS ENUM ('STUDENT', 'EXPERT', 'ADMIN');
 
 -- CreateEnum
-CREATE TYPE "AssignmentStatus" AS ENUM ('OPEN', 'ASSIGNED', 'IN_PROGRESS', 'UNDER_REVIEW', 'COMPLETED', 'CANCELLED', 'DISPUTED');
+CREATE TYPE "AssignmentStatus" AS ENUM ('OPEN', 'AWAITING_PAYMENT', 'ASSIGNED', 'IN_PROGRESS', 'UNDER_REVIEW', 'COMPLETED', 'CANCELLED', 'DISPUTED');
 
 -- CreateEnum
 CREATE TYPE "BidStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED');
@@ -32,11 +32,12 @@ CREATE TABLE "assignments" (
     "title" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "attachmentUrl" JSONB,
-    "budget" DOUBLE PRECISION NOT NULL,
+    "budget" DECIMAL(12,2) NOT NULL,
     "deadline" TIMESTAMP(3) NOT NULL,
     "status" "AssignmentStatus" NOT NULL DEFAULT 'OPEN',
     "assignedExpertId" TEXT,
     "submissionUrl" TEXT,
+    "acceptedBidId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -48,7 +49,7 @@ CREATE TABLE "assignmentBids" (
     "id" TEXT NOT NULL,
     "assignmentId" TEXT NOT NULL,
     "expertId" TEXT NOT NULL,
-    "proposedAmount" DOUBLE PRECISION NOT NULL,
+    "proposedAmount" DECIMAL(12,2) NOT NULL,
     "estimatedDelivery" TIMESTAMP(3) NOT NULL,
     "coverNote" TEXT NOT NULL,
     "status" "BidStatus" NOT NULL DEFAULT 'PENDING',
@@ -62,10 +63,10 @@ CREATE TABLE "assignmentBids" (
 -- CreateTable
 CREATE TABLE "escrows" (
     "id" TEXT NOT NULL,
-    "taskId" TEXT NOT NULL,
-    "totalAmount" DOUBLE PRECISION NOT NULL,
-    "platformCommission" DOUBLE PRECISION NOT NULL DEFAULT 15,
-    "expertEarnings" DOUBLE PRECISION NOT NULL DEFAULT 85,
+    "assignmentId" TEXT NOT NULL,
+    "totalAmount" DECIMAL(12,2) NOT NULL,
+    "platformCommission" DECIMAL(12,2) NOT NULL DEFAULT 15,
+    "expertEarnings" DECIMAL(12,2) NOT NULL DEFAULT 85,
     "status" "EscrowStatus" NOT NULL DEFAULT 'HELD',
     "disbursedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -82,9 +83,9 @@ CREATE TABLE "experts" (
     "department" TEXT NOT NULL,
     "documents" JSONB[],
     "bio" TEXT,
-    "ratePerAssignment" DOUBLE PRECISION NOT NULL,
+    "ratePerAssignment" DECIMAL(12,2) NOT NULL,
     "isVerified" BOOLEAN NOT NULL DEFAULT false,
-    "walletBalance" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "walletBalance" DECIMAL(12,2) NOT NULL DEFAULT 0,
     "verificationStatus" "ExpertVerificationStatus" NOT NULL DEFAULT 'PENDING',
     "rejectionReason" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -98,7 +99,7 @@ CREATE TABLE "payments" (
     "id" TEXT NOT NULL,
     "assignmentId" TEXT NOT NULL,
     "transactionId" TEXT,
-    "amount" DOUBLE PRECISION NOT NULL,
+    "amount" DECIMAL(12,2) NOT NULL,
     "status" "PaymentStatus" NOT NULL DEFAULT 'INITIATED',
     "paymentGateway" "PaymentGateway" NOT NULL DEFAULT 'BKASH',
     "merchantInvoiceNumber" TEXT,
@@ -162,16 +163,16 @@ CREATE TABLE "users" (
 );
 
 -- CreateIndex
-CREATE INDEX "assignments_studentId_title_budget_idx" ON "assignments"("studentId", "title", "budget");
+CREATE UNIQUE INDEX "assignments_acceptedBidId_key" ON "assignments"("acceptedBidId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "assignmentBids_assignmentId_expertId_status_key" ON "assignmentBids"("assignmentId", "expertId", "status");
+CREATE INDEX "assignments_studentId_title_budget_idx" ON "assignments"("studentId", "title", "budget");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "assignmentBids_assignmentId_expertId_key" ON "assignmentBids"("assignmentId", "expertId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "escrows_taskId_key" ON "escrows"("taskId");
+CREATE UNIQUE INDEX "escrows_assignmentId_key" ON "escrows"("assignmentId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "experts_userId_key" ON "experts"("userId");
@@ -216,13 +217,16 @@ ALTER TABLE "assignments" ADD CONSTRAINT "assignments_studentId_fkey" FOREIGN KE
 ALTER TABLE "assignments" ADD CONSTRAINT "assignments_assignedExpertId_fkey" FOREIGN KEY ("assignedExpertId") REFERENCES "experts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "assignments" ADD CONSTRAINT "assignments_acceptedBidId_fkey" FOREIGN KEY ("acceptedBidId") REFERENCES "assignmentBids"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "assignmentBids" ADD CONSTRAINT "assignmentBids_assignmentId_fkey" FOREIGN KEY ("assignmentId") REFERENCES "assignments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "assignmentBids" ADD CONSTRAINT "assignmentBids_expertId_fkey" FOREIGN KEY ("expertId") REFERENCES "experts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "escrows" ADD CONSTRAINT "escrows_taskId_fkey" FOREIGN KEY ("taskId") REFERENCES "assignments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "escrows" ADD CONSTRAINT "escrows_assignmentId_fkey" FOREIGN KEY ("assignmentId") REFERENCES "assignments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "experts" ADD CONSTRAINT "experts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
