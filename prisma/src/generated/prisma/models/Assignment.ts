@@ -390,7 +390,7 @@ export type AssignmentCreateInput = {
   bids?: Prisma.AssignmentBidCreateNestedManyWithoutAssignmentInput
   acceptedBid?: Prisma.AssignmentBidCreateNestedOneWithoutWonAssignmentInput
   payment?: Prisma.PaymentCreateNestedOneWithoutAssignmentInput
-  review?: Prisma.ReviewCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewCreateNestedOneWithoutAssignmentInput
   escrow?: Prisma.EscrowCreateNestedOneWithoutAssignmentInput
 }
 
@@ -410,7 +410,7 @@ export type AssignmentUncheckedCreateInput = {
   updatedAt?: Date | string
   bids?: Prisma.AssignmentBidUncheckedCreateNestedManyWithoutAssignmentInput
   payment?: Prisma.PaymentUncheckedCreateNestedOneWithoutAssignmentInput
-  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutAssignmentInput
   escrow?: Prisma.EscrowUncheckedCreateNestedOneWithoutAssignmentInput
 }
 
@@ -430,7 +430,7 @@ export type AssignmentUpdateInput = {
   bids?: Prisma.AssignmentBidUpdateManyWithoutAssignmentNestedInput
   acceptedBid?: Prisma.AssignmentBidUpdateOneWithoutWonAssignmentNestedInput
   payment?: Prisma.PaymentUpdateOneWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUpdateOneWithoutAssignmentNestedInput
   escrow?: Prisma.EscrowUpdateOneWithoutAssignmentNestedInput
 }
 
@@ -450,7 +450,7 @@ export type AssignmentUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   bids?: Prisma.AssignmentBidUncheckedUpdateManyWithoutAssignmentNestedInput
   payment?: Prisma.PaymentUncheckedUpdateOneWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUncheckedUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUncheckedUpdateOneWithoutAssignmentNestedInput
   escrow?: Prisma.EscrowUncheckedUpdateOneWithoutAssignmentNestedInput
 }
 
@@ -784,7 +784,7 @@ export type AssignmentCreateWithoutBidsInput = {
   assignedExpert?: Prisma.ExpertCreateNestedOneWithoutAssignmentTasksInput
   acceptedBid?: Prisma.AssignmentBidCreateNestedOneWithoutWonAssignmentInput
   payment?: Prisma.PaymentCreateNestedOneWithoutAssignmentInput
-  review?: Prisma.ReviewCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewCreateNestedOneWithoutAssignmentInput
   escrow?: Prisma.EscrowCreateNestedOneWithoutAssignmentInput
 }
 
@@ -803,7 +803,7 @@ export type AssignmentUncheckedCreateWithoutBidsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   payment?: Prisma.PaymentUncheckedCreateNestedOneWithoutAssignmentInput
-  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutAssignmentInput
   escrow?: Prisma.EscrowUncheckedCreateNestedOneWithoutAssignmentInput
 }
 
@@ -827,7 +827,7 @@ export type AssignmentCreateWithoutAcceptedBidInput = {
   assignedExpert?: Prisma.ExpertCreateNestedOneWithoutAssignmentTasksInput
   bids?: Prisma.AssignmentBidCreateNestedManyWithoutAssignmentInput
   payment?: Prisma.PaymentCreateNestedOneWithoutAssignmentInput
-  review?: Prisma.ReviewCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewCreateNestedOneWithoutAssignmentInput
   escrow?: Prisma.EscrowCreateNestedOneWithoutAssignmentInput
 }
 
@@ -846,7 +846,7 @@ export type AssignmentUncheckedCreateWithoutAcceptedBidInput = {
   updatedAt?: Date | string
   bids?: Prisma.AssignmentBidUncheckedCreateNestedManyWithoutAssignmentInput
   payment?: Prisma.PaymentUncheckedCreateNestedOneWithoutAssignmentInput
-  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutAssignmentInput
   escrow?: Prisma.EscrowUncheckedCreateNestedOneWithoutAssignmentInput
 }
 
@@ -881,7 +881,7 @@ export type AssignmentUpdateWithoutBidsInput = {
   assignedExpert?: Prisma.ExpertUpdateOneWithoutAssignmentTasksNestedInput
   acceptedBid?: Prisma.AssignmentBidUpdateOneWithoutWonAssignmentNestedInput
   payment?: Prisma.PaymentUpdateOneWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUpdateOneWithoutAssignmentNestedInput
   escrow?: Prisma.EscrowUpdateOneWithoutAssignmentNestedInput
 }
 
@@ -900,7 +900,7 @@ export type AssignmentUncheckedUpdateWithoutBidsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   payment?: Prisma.PaymentUncheckedUpdateOneWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUncheckedUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUncheckedUpdateOneWithoutAssignmentNestedInput
   escrow?: Prisma.EscrowUncheckedUpdateOneWithoutAssignmentNestedInput
 }
 
@@ -930,7 +930,7 @@ export type AssignmentUpdateWithoutAcceptedBidInput = {
   assignedExpert?: Prisma.ExpertUpdateOneWithoutAssignmentTasksNestedInput
   bids?: Prisma.AssignmentBidUpdateManyWithoutAssignmentNestedInput
   payment?: Prisma.PaymentUpdateOneWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUpdateOneWithoutAssignmentNestedInput
   escrow?: Prisma.EscrowUpdateOneWithoutAssignmentNestedInput
 }
 
@@ -949,7 +949,7 @@ export type AssignmentUncheckedUpdateWithoutAcceptedBidInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   bids?: Prisma.AssignmentBidUncheckedUpdateManyWithoutAssignmentNestedInput
   payment?: Prisma.PaymentUncheckedUpdateOneWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUncheckedUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUncheckedUpdateOneWithoutAssignmentNestedInput
   escrow?: Prisma.EscrowUncheckedUpdateOneWithoutAssignmentNestedInput
 }
 
@@ -969,7 +969,7 @@ export type AssignmentCreateWithoutEscrowInput = {
   bids?: Prisma.AssignmentBidCreateNestedManyWithoutAssignmentInput
   acceptedBid?: Prisma.AssignmentBidCreateNestedOneWithoutWonAssignmentInput
   payment?: Prisma.PaymentCreateNestedOneWithoutAssignmentInput
-  review?: Prisma.ReviewCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewCreateNestedOneWithoutAssignmentInput
 }
 
 export type AssignmentUncheckedCreateWithoutEscrowInput = {
@@ -988,7 +988,7 @@ export type AssignmentUncheckedCreateWithoutEscrowInput = {
   updatedAt?: Date | string
   bids?: Prisma.AssignmentBidUncheckedCreateNestedManyWithoutAssignmentInput
   payment?: Prisma.PaymentUncheckedCreateNestedOneWithoutAssignmentInput
-  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutAssignmentInput
 }
 
 export type AssignmentCreateOrConnectWithoutEscrowInput = {
@@ -1023,7 +1023,7 @@ export type AssignmentUpdateWithoutEscrowInput = {
   bids?: Prisma.AssignmentBidUpdateManyWithoutAssignmentNestedInput
   acceptedBid?: Prisma.AssignmentBidUpdateOneWithoutWonAssignmentNestedInput
   payment?: Prisma.PaymentUpdateOneWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUpdateOneWithoutAssignmentNestedInput
 }
 
 export type AssignmentUncheckedUpdateWithoutEscrowInput = {
@@ -1042,7 +1042,7 @@ export type AssignmentUncheckedUpdateWithoutEscrowInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   bids?: Prisma.AssignmentBidUncheckedUpdateManyWithoutAssignmentNestedInput
   payment?: Prisma.PaymentUncheckedUpdateOneWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUncheckedUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUncheckedUpdateOneWithoutAssignmentNestedInput
 }
 
 export type AssignmentCreateWithoutAssignedExpertInput = {
@@ -1060,7 +1060,7 @@ export type AssignmentCreateWithoutAssignedExpertInput = {
   bids?: Prisma.AssignmentBidCreateNestedManyWithoutAssignmentInput
   acceptedBid?: Prisma.AssignmentBidCreateNestedOneWithoutWonAssignmentInput
   payment?: Prisma.PaymentCreateNestedOneWithoutAssignmentInput
-  review?: Prisma.ReviewCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewCreateNestedOneWithoutAssignmentInput
   escrow?: Prisma.EscrowCreateNestedOneWithoutAssignmentInput
 }
 
@@ -1079,7 +1079,7 @@ export type AssignmentUncheckedCreateWithoutAssignedExpertInput = {
   updatedAt?: Date | string
   bids?: Prisma.AssignmentBidUncheckedCreateNestedManyWithoutAssignmentInput
   payment?: Prisma.PaymentUncheckedCreateNestedOneWithoutAssignmentInput
-  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutAssignmentInput
   escrow?: Prisma.EscrowUncheckedCreateNestedOneWithoutAssignmentInput
 }
 
@@ -1143,7 +1143,7 @@ export type AssignmentCreateWithoutPaymentInput = {
   assignedExpert?: Prisma.ExpertCreateNestedOneWithoutAssignmentTasksInput
   bids?: Prisma.AssignmentBidCreateNestedManyWithoutAssignmentInput
   acceptedBid?: Prisma.AssignmentBidCreateNestedOneWithoutWonAssignmentInput
-  review?: Prisma.ReviewCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewCreateNestedOneWithoutAssignmentInput
   escrow?: Prisma.EscrowCreateNestedOneWithoutAssignmentInput
 }
 
@@ -1162,7 +1162,7 @@ export type AssignmentUncheckedCreateWithoutPaymentInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   bids?: Prisma.AssignmentBidUncheckedCreateNestedManyWithoutAssignmentInput
-  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutAssignmentInput
   escrow?: Prisma.EscrowUncheckedCreateNestedOneWithoutAssignmentInput
 }
 
@@ -1197,7 +1197,7 @@ export type AssignmentUpdateWithoutPaymentInput = {
   assignedExpert?: Prisma.ExpertUpdateOneWithoutAssignmentTasksNestedInput
   bids?: Prisma.AssignmentBidUpdateManyWithoutAssignmentNestedInput
   acceptedBid?: Prisma.AssignmentBidUpdateOneWithoutWonAssignmentNestedInput
-  review?: Prisma.ReviewUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUpdateOneWithoutAssignmentNestedInput
   escrow?: Prisma.EscrowUpdateOneWithoutAssignmentNestedInput
 }
 
@@ -1216,7 +1216,7 @@ export type AssignmentUncheckedUpdateWithoutPaymentInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   bids?: Prisma.AssignmentBidUncheckedUpdateManyWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUncheckedUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUncheckedUpdateOneWithoutAssignmentNestedInput
   escrow?: Prisma.EscrowUncheckedUpdateOneWithoutAssignmentNestedInput
 }
 
@@ -1327,7 +1327,7 @@ export type AssignmentCreateWithoutStudentInput = {
   bids?: Prisma.AssignmentBidCreateNestedManyWithoutAssignmentInput
   acceptedBid?: Prisma.AssignmentBidCreateNestedOneWithoutWonAssignmentInput
   payment?: Prisma.PaymentCreateNestedOneWithoutAssignmentInput
-  review?: Prisma.ReviewCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewCreateNestedOneWithoutAssignmentInput
   escrow?: Prisma.EscrowCreateNestedOneWithoutAssignmentInput
 }
 
@@ -1346,7 +1346,7 @@ export type AssignmentUncheckedCreateWithoutStudentInput = {
   updatedAt?: Date | string
   bids?: Prisma.AssignmentBidUncheckedCreateNestedManyWithoutAssignmentInput
   payment?: Prisma.PaymentUncheckedCreateNestedOneWithoutAssignmentInput
-  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutTaskInput
+  review?: Prisma.ReviewUncheckedCreateNestedOneWithoutAssignmentInput
   escrow?: Prisma.EscrowUncheckedCreateNestedOneWithoutAssignmentInput
 }
 
@@ -1406,7 +1406,7 @@ export type AssignmentUpdateWithoutAssignedExpertInput = {
   bids?: Prisma.AssignmentBidUpdateManyWithoutAssignmentNestedInput
   acceptedBid?: Prisma.AssignmentBidUpdateOneWithoutWonAssignmentNestedInput
   payment?: Prisma.PaymentUpdateOneWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUpdateOneWithoutAssignmentNestedInput
   escrow?: Prisma.EscrowUpdateOneWithoutAssignmentNestedInput
 }
 
@@ -1425,7 +1425,7 @@ export type AssignmentUncheckedUpdateWithoutAssignedExpertInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   bids?: Prisma.AssignmentBidUncheckedUpdateManyWithoutAssignmentNestedInput
   payment?: Prisma.PaymentUncheckedUpdateOneWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUncheckedUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUncheckedUpdateOneWithoutAssignmentNestedInput
   escrow?: Prisma.EscrowUncheckedUpdateOneWithoutAssignmentNestedInput
 }
 
@@ -1474,7 +1474,7 @@ export type AssignmentUpdateWithoutStudentInput = {
   bids?: Prisma.AssignmentBidUpdateManyWithoutAssignmentNestedInput
   acceptedBid?: Prisma.AssignmentBidUpdateOneWithoutWonAssignmentNestedInput
   payment?: Prisma.PaymentUpdateOneWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUpdateOneWithoutAssignmentNestedInput
   escrow?: Prisma.EscrowUpdateOneWithoutAssignmentNestedInput
 }
 
@@ -1493,7 +1493,7 @@ export type AssignmentUncheckedUpdateWithoutStudentInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   bids?: Prisma.AssignmentBidUncheckedUpdateManyWithoutAssignmentNestedInput
   payment?: Prisma.PaymentUncheckedUpdateOneWithoutAssignmentNestedInput
-  review?: Prisma.ReviewUncheckedUpdateOneWithoutTaskNestedInput
+  review?: Prisma.ReviewUncheckedUpdateOneWithoutAssignmentNestedInput
   escrow?: Prisma.EscrowUncheckedUpdateOneWithoutAssignmentNestedInput
 }
 

@@ -12,5 +12,6 @@ router.post(
   auth(Role.STUDENT),
   paymentController.initiateCheckout,
 );
+router.get("/callback/bkash", paymentController.bkashCallback);
 
 export const PaymentRoute = router;

@@ -18,6 +18,18 @@ const initiateCheckout = catchAsync(async (req, res) => {
   });
 });
 
+const bkashCallback = catchAsync(async (req, res) => {
+  const callbackData = await paymentService.bkashCallback(req.query);
+  res.redirect(callbackData.redirectUrl as string);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Bkash callback processed successfully",
+    data: null,
+  });
+});
+
 export const paymentController = {
   initiateCheckout,
+  bkashCallback,
 };

@@ -8,6 +8,7 @@ const envConfig = {
   port: process.env.PORT,
   database_url: process.env.DATABASE_URL,
   backend_url: process.env.BACKEND_URL,
+  api_base_url: process.env.APP_BASE_URL,
   frontend_url: process.env.FRONTEND_URL,
   bcrypt_salt_rounds: process.env.BCRYPT_SALT_ROUNDS as string,
 

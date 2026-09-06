@@ -1,12 +1,14 @@
 model Review {
   id     String @id @default(uuid())
-  taskId String @unique
-
-  task      Assignment @relation(fields: [taskId], references: [id])
+  
+  assignmentId String @unique
+  assignment      Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  
   expertId  String
-  expert    Expert     @relation(fields: [expertId], references: [id])
+  expert    Expert     @relation(fields: [expertId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  
   studentId String
-  student   User       @relation(fields: [studentId], references: [id])
+  student   User       @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   rating    Int // 1 to 5
   comment   String?

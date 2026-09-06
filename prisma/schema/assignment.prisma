@@ -1,7 +1,7 @@
 model Assignment {
   id        String  @id @default(uuid())
   studentId String
-  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   title         String
   description   String
@@ -17,7 +17,7 @@ model Assignment {
   bids AssignmentBid[]
 
   acceptedBidId String?        @unique
-  acceptedBid   AssignmentBid? @relation("AcceptedBid", fields: [acceptedBidId], references: [id], onDelete: SetNull)
+  acceptedBid   AssignmentBid? @relation("AcceptedBid", fields: [acceptedBidId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
