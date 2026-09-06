@@ -120,33 +120,32 @@ const initiateCheckout = async (assignmentId: string, user: RequestUser) => {
 };
 
 const bkashCallback = async (query: Record<string, any>) => {
-  const transaction = await prisma.$transaction(async (tx) => {
-    const { paymentID, status, signature } = query;
-    if (!paymentID)
-      throw new AppError(httpStatus.BAD_REQUEST, "Payment Id is Missing");
-    if (!status)
-      throw new AppError(httpStatus.BAD_REQUEST, "Status is Missing");
-    if (!signature)
-      throw new AppError(httpStatus.BAD_REQUEST, "Signature is Missing");
+  const { paymentID, status, signature } = query;
+  if (!paymentID)
+    throw new AppError(httpStatus.BAD_REQUEST, "Payment Id is Missing");
+  if (!status) throw new AppError(httpStatus.BAD_REQUEST, "Status is Missing");
+  if (!signature)
+    throw new AppError(httpStatus.BAD_REQUEST, "Signature is Missing");
 
-    const idToken = await getBkashIdToken();
-    const bkashPaymentVerifyResponse = await fetch(
-      `${envConfig.bkash_url}/tokenized/checkout/execute`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: idToken as string,
-          "X-App-Key": envConfig.bkash_app_key as string,
-        },
-        body: JSON.stringify({ paymentID: paymentID }),
+  const idToken = await getBkashIdToken();
+  const bkashPaymentVerifyResponse = await fetch(
+    `${envConfig.bkash_url}/tokenized/checkout/execute`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: idToken as string,
+        "X-App-Key": envConfig.bkash_app_key as string,
       },
-    );
-    const bkashPaymentVerifyResult: any =
-      await bkashPaymentVerifyResponse.json();
+      body: JSON.stringify({ paymentID: paymentID }),
+    },
+  );
+  const bkashPaymentVerifyResult: any = await bkashPaymentVerifyResponse.json();
+  console.log(bkashPaymentVerifyResult);
 
-    if (status === "success") {
+  if (status === "success") {
+    await prisma.$transaction(async (tx) => {
       await tx.payment.update({
         where: {
           assignmentId: bkashPaymentVerifyResult.merchantInvoiceNumber,
@@ -160,6 +159,7 @@ const bkashCallback = async (query: Record<string, any>) => {
           payerReference: bkashPaymentVerifyResult.payerReference,
         },
       });
+
       await tx.assignment.update({
         where: {
           id: bkashPaymentVerifyResult.merchantInvoiceNumber,
@@ -170,37 +170,41 @@ const bkashCallback = async (query: Record<string, any>) => {
             create: {
               totalAmount: Number(bkashPaymentVerifyResult.amount),
               status: EscrowStatus.HELD,
-              // assignmentId: bkashPaymentVerifyResult.merchantInvoiceNumber,
             },
           },
         },
       });
-      return {
-        redirectUrl: `${envConfig.frontend_url}/assignment/${bkashPaymentVerifyResult.merchantInvoiceNumber}/result?paymentStatus=success`,
-      };
-    }
-    if (status === "failure") {
-      await tx.payment.update({
-        where: {
-          assignmentId: bkashPaymentVerifyResult.merchantInvoiceNumber,
-        },
-        data: {
-          status: PaymentStatus.FAILED,
-        },
-      });
-      return {
-        redirectUrl: `${envConfig.frontend_url}/assignment/${bkashPaymentVerifyResult.merchantInvoiceNumber}/result?paymentStatus=failure`,
-      };
-    }
-    if (status === "cancel") {
-      return {
-        redirectUrl: `${envConfig.frontend_url}/assignment/${bkashPaymentVerifyResult.merchantInvoiceNumber}/result?paymentStatus=cancel`,
-      };
-    }
-    return;
-  });
+    });
 
-  return { redirectUrl: transaction?.redirectUrl };
+    return {
+      redirectUrl: `${envConfig.frontend_url}/assignment/${bkashPaymentVerifyResult.merchantInvoiceNumber}/result?paymentStatus=success`,
+    };
+  }
+
+  if (status === "failure") {
+    await prisma.payment.update({
+      where: {
+        assignmentId: bkashPaymentVerifyResult.merchantInvoiceNumber,
+      },
+      data: {
+        status: PaymentStatus.FAILED,
+      },
+    });
+    return {
+      redirectUrl: `${envConfig.frontend_url}/assignment/${bkashPaymentVerifyResult.merchantInvoiceNumber}/result?paymentStatus=failure`,
+    };
+  }
+
+  if (status === "cancel") {
+    return {
+      redirectUrl: `${envConfig.frontend_url}/assignment/${bkashPaymentVerifyResult.merchantInvoiceNumber}/result?paymentStatus=cancel`,
+    };
+  }
+
+  throw new AppError(
+    httpStatus.BAD_REQUEST,
+    "Invalid payment status received from bKash",
+  );
 };
 
 export const paymentService = {

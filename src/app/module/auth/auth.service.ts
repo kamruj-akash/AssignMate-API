@@ -222,7 +222,7 @@ const loginUser = async (payload: ILoginUser) => {
 };
 
 const getMe = async (user: any) => {
-  const userData = await prisma.user.findUniqueOrThrow({
+  const userData = await prisma.user.findUnique({
     where: { id: user.userId },
     omit: { password: true },
     include: {
@@ -230,6 +230,9 @@ const getMe = async (user: any) => {
       expert: true,
     },
   });
+  if (!userData) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
 
   return userData;
 };

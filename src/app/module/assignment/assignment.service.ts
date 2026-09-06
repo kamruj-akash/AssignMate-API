@@ -262,15 +262,23 @@ const submitAssignment = async (
   status: AssignmentStatus,
   attachment?: Express.Multer.File,
 ) => {
-  const existUser = await prisma.user.findUniqueOrThrow({
+  const existUser = await prisma.user.findUnique({
     where: { id: reqUser.userId, role: Role.EXPERT },
     include: {
       expert: true,
     },
   });
-  const assignment = await prisma.assignment.findUniqueOrThrow({
+
+  if (!existUser || !existUser.expert) {
+    throw new AppError(httpStatus.NOT_FOUND, "Expert profile not found");
+  }
+
+  const assignment = await prisma.assignment.findUnique({
     where: { id: assignmentId, assignedExpertId: existUser.expert?.id },
   });
+  if (!assignment) {
+    throw new AppError(httpStatus.NOT_FOUND, "Assignment not found");
+  }
   if (existUser.expert?.id !== assignment.assignedExpertId) {
     throw new AppError(
       httpStatus.FORBIDDEN,
@@ -347,15 +355,21 @@ const assignmentAction = async (
   assignmentId: string,
   payload: IAssignmentActionPayload,
 ) => {
-  const existUser = await prisma.user.findUniqueOrThrow({
+  const existUser = await prisma.user.findUnique({
     where: { id: reqUser.userId, role: Role.STUDENT },
     include: {
       student: true,
     },
   });
-  const assignment = await prisma.assignment.findUniqueOrThrow({
+  if (!existUser || !existUser.student) {
+    throw new AppError(httpStatus.NOT_FOUND, "Student profile not found");
+  }
+  const assignment = await prisma.assignment.findUnique({
     where: { id: assignmentId, studentId: existUser.student?.id },
   });
+  if (!assignment) {
+    throw new AppError(httpStatus.NOT_FOUND, "Assignment not found");
+  }
 
   if (existUser.student?.id !== assignment.studentId) {
     throw new AppError(
@@ -414,9 +428,13 @@ const assignmentAction = async (
           status: AssignmentStatus.COMPLETED,
         },
       });
-      const getEscrow = await tx.escrow.findUniqueOrThrow({
+      const getEscrow = await tx.escrow.findUnique({
         where: { assignmentId: assignmentId },
       });
+
+      if (!getEscrow) {
+        throw new AppError(httpStatus.NOT_FOUND, "Escrow not found");
+      }
 
       await tx.expert.update({
         where: { id: assignment.assignedExpertId as string },
