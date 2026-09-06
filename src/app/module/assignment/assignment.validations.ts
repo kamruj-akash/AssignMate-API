@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AssignmentStatus } from "../../../../prisma/src/generated/prisma/enums";
 
 export const CreateAssignmentZod = z.object({
   title: z
@@ -20,4 +21,10 @@ export const CreateAssignmentZod = z.object({
     .refine((val) => new Date(val) > new Date(), {
       message: "Deadline must be in the future",
     }),
+});
+
+export const submitAssignmentZod = z.object({
+  status: z.enum([AssignmentStatus.IN_PROGRESS, AssignmentStatus.SUBMITTED], {
+    message: "Invalid assignment status",
+  }),
 });

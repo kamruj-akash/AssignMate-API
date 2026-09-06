@@ -12,7 +12,7 @@ model Assignment {
 
   assignedExpertId String?
   assignedExpert   Expert? @relation(fields: [assignedExpertId], references: [id])
-  submissionUrl    String?
+  submissionUrl    Json?
 
   bids AssignmentBid[]
 

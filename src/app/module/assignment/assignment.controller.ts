@@ -63,9 +63,30 @@ const getMyAssignments = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const submitAssignment = catchAsync(async (req: Request, res: Response) => {
+  const attachment = req.file as Express.Multer.File;
+  const assignmentId = req.params.assignmentId as string;
+  const { status } = req.body;
+
+  const assignment = await assignmentService.submitAssignment(
+    req.user as RequestUser,
+    assignmentId,
+    status,
+    attachment,
+  );
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Assignment submitted successfully",
+    data: assignment,
+  });
+});
+
 export const assignmentController = {
   createAssignment,
   getOpenAssignments,
   getAssignmentById,
+  submitAssignment,
   getMyAssignments,
 };

@@ -1,7 +1,13 @@
 import type { UploadApiResponse } from "cloudinary";
 import httpStatus from "http-status";
-import { AssignmentStatus } from "../../../../prisma/src/generated/prisma/enums";
-import type { AssignmentWhereInput } from "../../../../prisma/src/generated/prisma/models";
+import {
+  AssignmentStatus,
+  Role,
+} from "../../../../prisma/src/generated/prisma/enums";
+import type {
+  AssignmentInclude,
+  AssignmentWhereInput,
+} from "../../../../prisma/src/generated/prisma/models";
 import type { IQuery } from "../../interface";
 import cloudinary from "../../lib/cloudinary";
 import { prisma } from "../../lib/prisma";
@@ -131,6 +137,7 @@ const getAssignmentById = async (assignmentId: string) => {
 
 const getMyAssignments = async (reqUser: RequestUser, query: IQuery) => {
   const searchTerm = query.searchTerm || "";
+  const status = query.status as AssignmentStatus | undefined;
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
   const sortBy = query.sortBy || "createdAt";
@@ -140,16 +147,74 @@ const getMyAssignments = async (reqUser: RequestUser, query: IQuery) => {
     where: { id: reqUser.userId },
     include: {
       student: true,
+      expert: true,
     },
   });
-  if (!existUser || !existUser.student) {
-    throw new AppError(httpStatus.NOT_FOUND, "Student not found");
+  if (!existUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
-  const andConditions: AssignmentWhereInput[] = [
-    {
-      studentId: existUser.student.id,
-    },
-  ];
+
+  const andConditions: AssignmentWhereInput[] = [];
+  let include: AssignmentInclude;
+
+  if (existUser.role === Role.STUDENT) {
+    if (!existUser.student) {
+      throw new AppError(httpStatus.NOT_FOUND, "Student profile not found");
+    }
+    andConditions.push({ studentId: existUser.student.id });
+    include = {
+      assignedExpert: {
+        select: {
+          id: true,
+          university: true,
+          department: true,
+          user: { select: { name: true, email: true } },
+        },
+      },
+      _count: { select: { bids: true } },
+    };
+  } else if (existUser.role === Role.EXPERT) {
+    if (!existUser.expert) {
+      throw new AppError(httpStatus.NOT_FOUND, "Expert profile not found");
+    }
+    // assignments the expert has actually won / is working on.
+    // pending bids are exposed separately via /bid/my-bids
+    andConditions.push({ assignedExpertId: existUser.expert.id });
+    include = {
+      student: {
+        select: {
+          id: true,
+          institution: true,
+          academicLevel: true,
+          user: { select: { name: true, email: true } },
+        },
+      },
+      acceptedBid: {
+        select: {
+          id: true,
+          proposedAmount: true,
+          estimatedDelivery: true,
+          status: true,
+        },
+      },
+    };
+  } else {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "Only students and experts have their own assignments",
+    );
+  }
+
+  if (status) {
+    if (!Object.values(AssignmentStatus).includes(status)) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        `Invalid status. Allowed values: ${Object.values(AssignmentStatus).join(", ")}`,
+      );
+    }
+    andConditions.push({ status });
+  }
+
   if (searchTerm) {
     andConditions.push({
       OR: [
@@ -163,6 +228,7 @@ const getMyAssignments = async (reqUser: RequestUser, query: IQuery) => {
     where: {
       AND: andConditions,
     },
+    include,
     skip: (page - 1) * limit,
     take: limit,
     orderBy: {
@@ -187,9 +253,96 @@ const getMyAssignments = async (reqUser: RequestUser, query: IQuery) => {
   };
 };
 
+const submitAssignment = async (
+  reqUser: RequestUser,
+  assignmentId: string,
+  status: any,
+  attachment?: Express.Multer.File,
+) => {
+  const existUser = await prisma.user.findUniqueOrThrow({
+    where: { id: reqUser.userId, role: Role.EXPERT },
+    include: {
+      expert: true,
+    },
+  });
+  const assignment = await prisma.assignment.findUniqueOrThrow({
+    where: { id: assignmentId, assignedExpertId: existUser.expert?.id },
+  });
+  if (existUser.expert?.id !== assignment.assignedExpertId) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You are not assigned to this assignment",
+    );
+  }
+
+  if (
+    assignment.status !== AssignmentStatus.ASSIGNED &&
+    assignment.status !== AssignmentStatus.IN_PROGRESS
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Assignment is not in a state that allows submission",
+    );
+  }
+
+  if (status === AssignmentStatus.IN_PROGRESS) {
+    const updatedAssignment = await prisma.assignment.update({
+      where: { id: assignmentId },
+      data: { status: AssignmentStatus.IN_PROGRESS },
+    });
+    return updatedAssignment;
+  }
+
+  if (status === AssignmentStatus.SUBMITTED && attachment) {
+    const attachmentUploadResult = await new Promise<UploadApiResponse>(
+      (resolve, reject) => {
+        cloudinary.uploader
+          .upload_stream(
+            { resource_type: "auto", folder: "assignment-submissions" },
+            async (error, result) => {
+              if (error) {
+                return reject(error);
+              }
+
+              if (!result) {
+                return reject(
+                  new AppError(
+                    httpStatus.INTERNAL_SERVER_ERROR,
+                    "No result returned from Cloudinary",
+                  ),
+                );
+              }
+              resolve(result);
+            },
+          )
+          .end(attachment?.buffer);
+      },
+    );
+
+    const updatedAssignment = await prisma.assignment.update({
+      where: { id: assignmentId },
+      data: {
+        status: AssignmentStatus.SUBMITTED,
+        submissionUrl: {
+          url: attachmentUploadResult.secure_url,
+          publicId: attachmentUploadResult.public_id,
+        },
+      },
+    });
+
+    return updatedAssignment;
+  }
+
+  throw new AppError(
+    httpStatus.BAD_REQUEST,
+    "Invalid status or missing attachment for submission",
+  );
+};
+
 export const assignmentService = {
   createAssignment,
   getOpenAssignments,
   getAssignmentById,
   getMyAssignments,
+  submitAssignment,
 };

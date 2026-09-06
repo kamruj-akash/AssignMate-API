@@ -4,7 +4,10 @@ import { upload } from "../../lib/multer";
 import { auth } from "../../middleware/authCheck";
 import { multipartDataValidationZod } from "../../middleware/validation";
 import { assignmentController } from "./assignment.controller";
-import { CreateAssignmentZod } from "./assignment.validations";
+import {
+  CreateAssignmentZod,
+  submitAssignmentZod,
+} from "./assignment.validations";
 
 const router = Router();
 
@@ -20,8 +23,16 @@ router.get("/feed", assignmentController.getOpenAssignments);
 router.get("/:assignmentId/get", assignmentController.getAssignmentById);
 router.get(
   "/my-assignments",
-  auth(Role.STUDENT),
+  auth(Role.STUDENT, Role.EXPERT),
   assignmentController.getMyAssignments,
+);
+
+router.post(
+  "/:assignmentId/submit",
+  upload.single("attachment"),
+  auth(Role.EXPERT),
+  multipartDataValidationZod(submitAssignmentZod),
+  assignmentController.submitAssignment,
 );
 
 export const AssignmentRoutes = router;
