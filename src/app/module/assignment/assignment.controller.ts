@@ -83,10 +83,29 @@ const submitAssignment = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const assignmentAction = catchAsync(async (req: Request, res: Response) => {
+  const { assignmentId } = req.params;
+  const { status, reason } = req.body;
+
+  const assignment = await assignmentService.assignmentAction(
+    req.user as RequestUser,
+    assignmentId as string,
+    req.body,
+  );
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Assignment action performed successfully",
+    data: assignment,
+  });
+});
+
 export const assignmentController = {
   createAssignment,
   getOpenAssignments,
   getAssignmentById,
   submitAssignment,
   getMyAssignments,
+  assignmentAction,
 };

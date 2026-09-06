@@ -1,7 +1,9 @@
 import type { UploadApiResponse } from "cloudinary";
 import httpStatus from "http-status";
+import { Prisma } from "../../../../prisma/src/generated/prisma/client";
 import {
   AssignmentStatus,
+  EscrowStatus,
   Role,
 } from "../../../../prisma/src/generated/prisma/enums";
 import type {
@@ -13,7 +15,8 @@ import cloudinary from "../../lib/cloudinary";
 import { prisma } from "../../lib/prisma";
 import type { RequestUser } from "../../middleware/authCheck";
 import { AppError } from "../../utils/AppError";
-import type { ICreateAssignment } from "./assignment.interface";
+import type { IAssignmentActionPayload } from "./assignment.interface";
+import type { ICreateAssignment } from "./export interface IAssignmentActionPayload {   status: AssignmentStatus;   reason?: string; }";
 
 const createAssignment = async (
   payload: ICreateAssignment,
@@ -256,7 +259,7 @@ const getMyAssignments = async (reqUser: RequestUser, query: IQuery) => {
 const submitAssignment = async (
   reqUser: RequestUser,
   assignmentId: string,
-  status: any,
+  status: AssignmentStatus,
   attachment?: Express.Multer.File,
 ) => {
   const existUser = await prisma.user.findUniqueOrThrow({
@@ -339,10 +342,121 @@ const submitAssignment = async (
   );
 };
 
+const assignmentAction = async (
+  reqUser: RequestUser,
+  assignmentId: string,
+  payload: IAssignmentActionPayload,
+) => {
+  const existUser = await prisma.user.findUniqueOrThrow({
+    where: { id: reqUser.userId, role: Role.STUDENT },
+    include: {
+      student: true,
+    },
+  });
+  const assignment = await prisma.assignment.findUniqueOrThrow({
+    where: { id: assignmentId, studentId: existUser.student?.id },
+  });
+
+  if (existUser.student?.id !== assignment.studentId) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You are not the owner of this assignment",
+    );
+  }
+  if (
+    assignment.status !== AssignmentStatus.SUBMITTED &&
+    assignment.status !== AssignmentStatus.UNDER_REVIEW
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Assignment is not in a state that allows action",
+    );
+  }
+
+  if (payload.status === assignment.status) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      "Assignment is already in the requested status",
+    );
+  }
+
+  if (payload.status === AssignmentStatus.UNDER_REVIEW) {
+    const updatedAssignment = await prisma.assignment.update({
+      where: { id: assignmentId },
+      data: {
+        status: AssignmentStatus.UNDER_REVIEW,
+      },
+    });
+    return updatedAssignment;
+  }
+  if (payload.status === AssignmentStatus.DISPUTED) {
+    if (payload.status === AssignmentStatus.DISPUTED && !payload.reason) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Reason is required for disputing an assignment",
+      );
+    }
+    const updatedAssignment = await prisma.assignment.update({
+      where: { id: assignmentId },
+      data: {
+        status: AssignmentStatus.DISPUTED,
+        disputedReason: payload.reason,
+      },
+    });
+    return updatedAssignment;
+  }
+  console.log(assignment.assignedExpertId);
+  if (payload.status === AssignmentStatus.COMPLETED) {
+    const transaction = await prisma.$transaction(async (tx) => {
+      const updatedAssignment = await tx.assignment.update({
+        where: { id: assignmentId },
+        data: {
+          status: AssignmentStatus.COMPLETED,
+        },
+      });
+      const getEscrow = await tx.escrow.findUniqueOrThrow({
+        where: { assignmentId: assignmentId },
+      });
+
+      await tx.expert.update({
+        where: { id: assignment.assignedExpertId as string },
+        data: {
+          walletBalance: {
+            increment: new Prisma.Decimal(
+              (
+                (Number(getEscrow.totalAmount) *
+                  Number(getEscrow.expertEarnings)) /
+                100
+              ).toFixed(2),
+            ),
+          },
+        },
+      });
+
+      await tx.escrow.update({
+        where: { id: getEscrow.id },
+        data: {
+          status: EscrowStatus.RELEASED_TO_EXPERT,
+          disbursedAt: new Date(),
+        },
+      });
+
+      return updatedAssignment;
+    });
+    return transaction;
+  }
+
+  throw new AppError(
+    httpStatus.BAD_REQUEST,
+    "Invalid status for assignment action",
+  );
+};
+
 export const assignmentService = {
   createAssignment,
   getOpenAssignments,
   getAssignmentById,
   getMyAssignments,
   submitAssignment,
+  assignmentAction,
 };

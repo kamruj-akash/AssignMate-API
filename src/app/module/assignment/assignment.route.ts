@@ -27,12 +27,18 @@ router.get(
   assignmentController.getMyAssignments,
 );
 
-router.post(
+router.patch(
   "/:assignmentId/submit",
   upload.single("attachment"),
   auth(Role.EXPERT),
   multipartDataValidationZod(submitAssignmentZod),
   assignmentController.submitAssignment,
+);
+
+router.patch(
+  "/:assignmentId/action",
+  auth(Role.STUDENT),
+  assignmentController.assignmentAction,
 );
 
 export const AssignmentRoutes = router;

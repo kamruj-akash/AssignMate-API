@@ -88,6 +88,7 @@ export const AssignmentScalarFieldEnum = {
   status: 'status',
   assignedExpertId: 'assignedExpertId',
   submissionUrl: 'submissionUrl',
+  disputedReason: 'disputedReason',
   acceptedBidId: 'acceptedBidId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

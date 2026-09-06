@@ -43,6 +43,7 @@ export type AssignmentMinAggregateOutputType = {
   deadline: Date | null
   status: $Enums.AssignmentStatus | null
   assignedExpertId: string | null
+  disputedReason: string | null
   acceptedBidId: string | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -57,6 +58,7 @@ export type AssignmentMaxAggregateOutputType = {
   deadline: Date | null
   status: $Enums.AssignmentStatus | null
   assignedExpertId: string | null
+  disputedReason: string | null
   acceptedBidId: string | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -73,6 +75,7 @@ export type AssignmentCountAggregateOutputType = {
   status: number
   assignedExpertId: number
   submissionUrl: number
+  disputedReason: number
   acceptedBidId: number
   createdAt: number
   updatedAt: number
@@ -97,6 +100,7 @@ export type AssignmentMinAggregateInputType = {
   deadline?: true
   status?: true
   assignedExpertId?: true
+  disputedReason?: true
   acceptedBidId?: true
   createdAt?: true
   updatedAt?: true
@@ -111,6 +115,7 @@ export type AssignmentMaxAggregateInputType = {
   deadline?: true
   status?: true
   assignedExpertId?: true
+  disputedReason?: true
   acceptedBidId?: true
   createdAt?: true
   updatedAt?: true
@@ -127,6 +132,7 @@ export type AssignmentCountAggregateInputType = {
   status?: true
   assignedExpertId?: true
   submissionUrl?: true
+  disputedReason?: true
   acceptedBidId?: true
   createdAt?: true
   updatedAt?: true
@@ -230,6 +236,7 @@ export type AssignmentGroupByOutputType = {
   status: $Enums.AssignmentStatus
   assignedExpertId: string | null
   submissionUrl: runtime.JsonValue | null
+  disputedReason: string | null
   acceptedBidId: string | null
   createdAt: Date
   updatedAt: Date
@@ -269,6 +276,7 @@ export type AssignmentWhereInput = {
   status?: Prisma.EnumAssignmentStatusFilter<"Assignment"> | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.StringNullableFilter<"Assignment"> | string | null
   submissionUrl?: Prisma.JsonNullableFilter<"Assignment">
+  disputedReason?: Prisma.StringNullableFilter<"Assignment"> | string | null
   acceptedBidId?: Prisma.StringNullableFilter<"Assignment"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Assignment"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Assignment"> | Date | string
@@ -292,6 +300,7 @@ export type AssignmentOrderByWithRelationInput = {
   status?: Prisma.SortOrder
   assignedExpertId?: Prisma.SortOrderInput | Prisma.SortOrder
   submissionUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  disputedReason?: Prisma.SortOrderInput | Prisma.SortOrder
   acceptedBidId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -319,6 +328,7 @@ export type AssignmentWhereUniqueInput = Prisma.AtLeast<{
   status?: Prisma.EnumAssignmentStatusFilter<"Assignment"> | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.StringNullableFilter<"Assignment"> | string | null
   submissionUrl?: Prisma.JsonNullableFilter<"Assignment">
+  disputedReason?: Prisma.StringNullableFilter<"Assignment"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Assignment"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Assignment"> | Date | string
   student?: Prisma.XOR<Prisma.StudentScalarRelationFilter, Prisma.StudentWhereInput>
@@ -341,6 +351,7 @@ export type AssignmentOrderByWithAggregationInput = {
   status?: Prisma.SortOrder
   assignedExpertId?: Prisma.SortOrderInput | Prisma.SortOrder
   submissionUrl?: Prisma.SortOrderInput | Prisma.SortOrder
+  disputedReason?: Prisma.SortOrderInput | Prisma.SortOrder
   acceptedBidId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -365,6 +376,7 @@ export type AssignmentScalarWhereWithAggregatesInput = {
   status?: Prisma.EnumAssignmentStatusWithAggregatesFilter<"Assignment"> | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.StringNullableWithAggregatesFilter<"Assignment"> | string | null
   submissionUrl?: Prisma.JsonNullableWithAggregatesFilter<"Assignment">
+  disputedReason?: Prisma.StringNullableWithAggregatesFilter<"Assignment"> | string | null
   acceptedBidId?: Prisma.StringNullableWithAggregatesFilter<"Assignment"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Assignment"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Assignment"> | Date | string
@@ -379,6 +391,7 @@ export type AssignmentCreateInput = {
   deadline: Date | string
   status?: $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   student: Prisma.StudentCreateNestedOneWithoutAssignmentTasksInput
@@ -401,6 +414,7 @@ export type AssignmentUncheckedCreateInput = {
   status?: $Enums.AssignmentStatus
   assignedExpertId?: string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   acceptedBidId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -419,6 +433,7 @@ export type AssignmentUpdateInput = {
   deadline?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   student?: Prisma.StudentUpdateOneRequiredWithoutAssignmentTasksNestedInput
@@ -441,6 +456,7 @@ export type AssignmentUncheckedUpdateInput = {
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acceptedBidId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -461,6 +477,7 @@ export type AssignmentCreateManyInput = {
   status?: $Enums.AssignmentStatus
   assignedExpertId?: string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   acceptedBidId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -475,6 +492,7 @@ export type AssignmentUpdateManyMutationInput = {
   deadline?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -490,6 +508,7 @@ export type AssignmentUncheckedUpdateManyInput = {
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acceptedBidId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -506,6 +525,7 @@ export type AssignmentCountOrderByAggregateInput = {
   status?: Prisma.SortOrder
   assignedExpertId?: Prisma.SortOrder
   submissionUrl?: Prisma.SortOrder
+  disputedReason?: Prisma.SortOrder
   acceptedBidId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -524,6 +544,7 @@ export type AssignmentMaxOrderByAggregateInput = {
   deadline?: Prisma.SortOrder
   status?: Prisma.SortOrder
   assignedExpertId?: Prisma.SortOrder
+  disputedReason?: Prisma.SortOrder
   acceptedBidId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -538,6 +559,7 @@ export type AssignmentMinOrderByAggregateInput = {
   deadline?: Prisma.SortOrder
   status?: Prisma.SortOrder
   assignedExpertId?: Prisma.SortOrder
+  disputedReason?: Prisma.SortOrder
   acceptedBidId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -772,6 +794,7 @@ export type AssignmentCreateWithoutBidsInput = {
   deadline: Date | string
   status?: $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   student: Prisma.StudentCreateNestedOneWithoutAssignmentTasksInput
@@ -793,6 +816,7 @@ export type AssignmentUncheckedCreateWithoutBidsInput = {
   status?: $Enums.AssignmentStatus
   assignedExpertId?: string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   acceptedBidId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -815,6 +839,7 @@ export type AssignmentCreateWithoutAcceptedBidInput = {
   deadline: Date | string
   status?: $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   student: Prisma.StudentCreateNestedOneWithoutAssignmentTasksInput
@@ -836,6 +861,7 @@ export type AssignmentUncheckedCreateWithoutAcceptedBidInput = {
   status?: $Enums.AssignmentStatus
   assignedExpertId?: string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   bids?: Prisma.AssignmentBidUncheckedCreateNestedManyWithoutAssignmentInput
@@ -869,6 +895,7 @@ export type AssignmentUpdateWithoutBidsInput = {
   deadline?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   student?: Prisma.StudentUpdateOneRequiredWithoutAssignmentTasksNestedInput
@@ -890,6 +917,7 @@ export type AssignmentUncheckedUpdateWithoutBidsInput = {
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acceptedBidId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -918,6 +946,7 @@ export type AssignmentUpdateWithoutAcceptedBidInput = {
   deadline?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   student?: Prisma.StudentUpdateOneRequiredWithoutAssignmentTasksNestedInput
@@ -939,6 +968,7 @@ export type AssignmentUncheckedUpdateWithoutAcceptedBidInput = {
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   bids?: Prisma.AssignmentBidUncheckedUpdateManyWithoutAssignmentNestedInput
@@ -956,6 +986,7 @@ export type AssignmentCreateWithoutEscrowInput = {
   deadline: Date | string
   status?: $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   student: Prisma.StudentCreateNestedOneWithoutAssignmentTasksInput
@@ -977,6 +1008,7 @@ export type AssignmentUncheckedCreateWithoutEscrowInput = {
   status?: $Enums.AssignmentStatus
   assignedExpertId?: string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   acceptedBidId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1010,6 +1042,7 @@ export type AssignmentUpdateWithoutEscrowInput = {
   deadline?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   student?: Prisma.StudentUpdateOneRequiredWithoutAssignmentTasksNestedInput
@@ -1031,6 +1064,7 @@ export type AssignmentUncheckedUpdateWithoutEscrowInput = {
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acceptedBidId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1048,6 +1082,7 @@ export type AssignmentCreateWithoutAssignedExpertInput = {
   deadline: Date | string
   status?: $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   student: Prisma.StudentCreateNestedOneWithoutAssignmentTasksInput
@@ -1068,6 +1103,7 @@ export type AssignmentUncheckedCreateWithoutAssignedExpertInput = {
   deadline: Date | string
   status?: $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   acceptedBidId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1117,6 +1153,7 @@ export type AssignmentScalarWhereInput = {
   status?: Prisma.EnumAssignmentStatusFilter<"Assignment"> | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.StringNullableFilter<"Assignment"> | string | null
   submissionUrl?: Prisma.JsonNullableFilter<"Assignment">
+  disputedReason?: Prisma.StringNullableFilter<"Assignment"> | string | null
   acceptedBidId?: Prisma.StringNullableFilter<"Assignment"> | string | null
   createdAt?: Prisma.DateTimeFilter<"Assignment"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Assignment"> | Date | string
@@ -1131,6 +1168,7 @@ export type AssignmentCreateWithoutPaymentInput = {
   deadline: Date | string
   status?: $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   student: Prisma.StudentCreateNestedOneWithoutAssignmentTasksInput
@@ -1152,6 +1190,7 @@ export type AssignmentUncheckedCreateWithoutPaymentInput = {
   status?: $Enums.AssignmentStatus
   assignedExpertId?: string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   acceptedBidId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1185,6 +1224,7 @@ export type AssignmentUpdateWithoutPaymentInput = {
   deadline?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   student?: Prisma.StudentUpdateOneRequiredWithoutAssignmentTasksNestedInput
@@ -1206,6 +1246,7 @@ export type AssignmentUncheckedUpdateWithoutPaymentInput = {
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acceptedBidId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1223,6 +1264,7 @@ export type AssignmentCreateWithoutReviewInput = {
   deadline: Date | string
   status?: $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   student: Prisma.StudentCreateNestedOneWithoutAssignmentTasksInput
@@ -1244,6 +1286,7 @@ export type AssignmentUncheckedCreateWithoutReviewInput = {
   status?: $Enums.AssignmentStatus
   assignedExpertId?: string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   acceptedBidId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1277,6 +1320,7 @@ export type AssignmentUpdateWithoutReviewInput = {
   deadline?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   student?: Prisma.StudentUpdateOneRequiredWithoutAssignmentTasksNestedInput
@@ -1298,6 +1342,7 @@ export type AssignmentUncheckedUpdateWithoutReviewInput = {
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acceptedBidId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1315,6 +1360,7 @@ export type AssignmentCreateWithoutStudentInput = {
   deadline: Date | string
   status?: $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   assignedExpert?: Prisma.ExpertCreateNestedOneWithoutAssignmentTasksInput
@@ -1335,6 +1381,7 @@ export type AssignmentUncheckedCreateWithoutStudentInput = {
   status?: $Enums.AssignmentStatus
   assignedExpertId?: string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   acceptedBidId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1380,6 +1427,7 @@ export type AssignmentCreateManyAssignedExpertInput = {
   deadline: Date | string
   status?: $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   acceptedBidId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1394,6 +1442,7 @@ export type AssignmentUpdateWithoutAssignedExpertInput = {
   deadline?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   student?: Prisma.StudentUpdateOneRequiredWithoutAssignmentTasksNestedInput
@@ -1414,6 +1463,7 @@ export type AssignmentUncheckedUpdateWithoutAssignedExpertInput = {
   deadline?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acceptedBidId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1433,6 +1483,7 @@ export type AssignmentUncheckedUpdateManyWithoutAssignedExpertInput = {
   deadline?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acceptedBidId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1448,6 +1499,7 @@ export type AssignmentCreateManyStudentInput = {
   status?: $Enums.AssignmentStatus
   assignedExpertId?: string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: string | null
   acceptedBidId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1462,6 +1514,7 @@ export type AssignmentUpdateWithoutStudentInput = {
   deadline?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   assignedExpert?: Prisma.ExpertUpdateOneWithoutAssignmentTasksNestedInput
@@ -1482,6 +1535,7 @@ export type AssignmentUncheckedUpdateWithoutStudentInput = {
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acceptedBidId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1501,6 +1555,7 @@ export type AssignmentUncheckedUpdateManyWithoutStudentInput = {
   status?: Prisma.EnumAssignmentStatusFieldUpdateOperationsInput | $Enums.AssignmentStatus
   assignedExpertId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   submissionUrl?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  disputedReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   acceptedBidId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1548,6 +1603,7 @@ export type AssignmentSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   status?: boolean
   assignedExpertId?: boolean
   submissionUrl?: boolean
+  disputedReason?: boolean
   acceptedBidId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1572,6 +1628,7 @@ export type AssignmentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   status?: boolean
   assignedExpertId?: boolean
   submissionUrl?: boolean
+  disputedReason?: boolean
   acceptedBidId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1591,6 +1648,7 @@ export type AssignmentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   status?: boolean
   assignedExpertId?: boolean
   submissionUrl?: boolean
+  disputedReason?: boolean
   acceptedBidId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1610,12 +1668,13 @@ export type AssignmentSelectScalar = {
   status?: boolean
   assignedExpertId?: boolean
   submissionUrl?: boolean
+  disputedReason?: boolean
   acceptedBidId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type AssignmentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "studentId" | "title" | "description" | "attachmentUrl" | "budget" | "deadline" | "status" | "assignedExpertId" | "submissionUrl" | "acceptedBidId" | "createdAt" | "updatedAt", ExtArgs["result"]["assignment"]>
+export type AssignmentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "studentId" | "title" | "description" | "attachmentUrl" | "budget" | "deadline" | "status" | "assignedExpertId" | "submissionUrl" | "disputedReason" | "acceptedBidId" | "createdAt" | "updatedAt", ExtArgs["result"]["assignment"]>
 export type AssignmentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   student?: boolean | Prisma.StudentDefaultArgs<ExtArgs>
   assignedExpert?: boolean | Prisma.Assignment$assignedExpertArgs<ExtArgs>
@@ -1659,6 +1718,7 @@ export type $AssignmentPayload<ExtArgs extends runtime.Types.Extensions.Internal
     status: $Enums.AssignmentStatus
     assignedExpertId: string | null
     submissionUrl: runtime.JsonValue | null
+    disputedReason: string | null
     acceptedBidId: string | null
     createdAt: Date
     updatedAt: Date
@@ -2102,6 +2162,7 @@ export interface AssignmentFieldRefs {
   readonly status: Prisma.FieldRef<"Assignment", 'AssignmentStatus'>
   readonly assignedExpertId: Prisma.FieldRef<"Assignment", 'String'>
   readonly submissionUrl: Prisma.FieldRef<"Assignment", 'Json'>
+  readonly disputedReason: Prisma.FieldRef<"Assignment", 'String'>
   readonly acceptedBidId: Prisma.FieldRef<"Assignment", 'String'>
   readonly createdAt: Prisma.FieldRef<"Assignment", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Assignment", 'DateTime'>
