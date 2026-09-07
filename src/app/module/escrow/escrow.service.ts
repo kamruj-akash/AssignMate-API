@@ -3,35 +3,18 @@ import {
   EscrowStatus,
   Role,
 } from "../../../../prisma/src/generated/prisma/enums";
-import type { EscrowWhereInput } from "../../../../prisma/src/generated/prisma/models";
+import type { IQuery } from "../../interface";
 import { prisma } from "../../lib/prisma";
 import type { RequestUser } from "../../middleware/authCheck";
 import { AppError } from "../../utils/AppError";
-import type { IEscrowBucket, IRevenueAnalyticsQuery } from "./escrow.interface";
-
-const round2 = (value: number) => Math.round(value * 100) / 100;
-
-const splitOf = (
-  totalAmount: number,
-  platformCommission: number,
-  expertEarnings: number,
-) => ({
-  platformCommissionRate: platformCommission,
-  expertEarningsRate: expertEarnings,
-  platformRevenue: round2((totalAmount * platformCommission) / 100),
-  expertPayout: round2((totalAmount * expertEarnings) / 100),
-});
 
 const getEscrowByAssignmentId = async (
   assignmentId: string,
-  reqUser: RequestUser,
+  user: RequestUser,
 ) => {
   const existUser = await prisma.user.findUnique({
-    where: { id: reqUser.userId },
-    include: {
-      student: true,
-      expert: true,
-    },
+    where: { id: user.userId },
+    include: { student: true, expert: true },
   });
   if (!existUser) {
     throw new AppError(httpStatus.NOT_FOUND, "User not found");
@@ -72,20 +55,23 @@ const getEscrowByAssignmentId = async (
     throw new AppError(httpStatus.NOT_FOUND, "Escrow not found");
   }
 
-  // admins see any vault; the two counterparties only see their own.
-  const isAdmin = existUser.role === Role.ADMIN;
-  if (!isAdmin) {
-    const isOwningStudent =
-      existUser.role === Role.STUDENT &&
-      !!existUser.student &&
-      existUser.student.id === escrow.assignment.studentId;
+  if (existUser.role === Role.STUDENT) {
+    if (!existUser.student) {
+      throw new AppError(httpStatus.NOT_FOUND, "Student profile not found");
+    }
+    if (existUser.student.id !== escrow.assignment.studentId) {
+      throw new AppError(
+        httpStatus.FORBIDDEN,
+        "You don't have access to this escrow",
+      );
+    }
+  }
 
-    const isAssignedExpert =
-      existUser.role === Role.EXPERT &&
-      !!existUser.expert &&
-      existUser.expert.id === escrow.assignment.assignedExpertId;
-
-    if (!isOwningStudent && !isAssignedExpert) {
+  if (existUser.role === Role.EXPERT) {
+    if (!existUser.expert) {
+      throw new AppError(httpStatus.NOT_FOUND, "Expert profile not found");
+    }
+    if (existUser.expert.id !== escrow.assignment.assignedExpertId) {
       throw new AppError(
         httpStatus.FORBIDDEN,
         "You don't have access to this escrow",
@@ -94,13 +80,9 @@ const getEscrowByAssignmentId = async (
   }
 
   const totalAmount = Number(escrow.totalAmount);
-  const {
-    studentId,
-    assignedExpertId,
-    student,
-    assignedExpert,
-    ...assignment
-  } = escrow.assignment;
+  const platformRevenue =
+    (totalAmount * Number(escrow.platformCommission)) / 100;
+  const expertPayout = (totalAmount * Number(escrow.expertEarnings)) / 100;
 
   return {
     id: escrow.id,
@@ -110,30 +92,38 @@ const getEscrowByAssignmentId = async (
     disbursedAt: escrow.disbursedAt,
     createdAt: escrow.createdAt,
     updatedAt: escrow.updatedAt,
-    breakdown: splitOf(
-      totalAmount,
-      Number(escrow.platformCommission),
-      Number(escrow.expertEarnings),
-    ),
-    assignment,
-    expert: assignedExpert,
-    student: isAdmin ? student : undefined,
+    breakdown: {
+      platformCommissionRate: Number(escrow.platformCommission),
+      expertEarningsRate: Number(escrow.expertEarnings),
+      platformRevenue: Number(platformRevenue.toFixed(2)),
+      expertPayout: Number(expertPayout.toFixed(2)),
+    },
+    assignment: {
+      id: escrow.assignment.id,
+      title: escrow.assignment.title,
+      status: escrow.assignment.status,
+      budget: escrow.assignment.budget,
+      deadline: escrow.assignment.deadline,
+    },
+    student: escrow.assignment.student,
+    expert: escrow.assignment.assignedExpert,
   };
 };
 
-const getRevenueAnalytics = async (query: IRevenueAnalyticsQuery) => {
-  const { from, to } = query;
+const getRevenueAnalytics = async (query: IQuery) => {
+  const from = query.from as string | undefined;
+  const to = query.to as string | undefined;
 
-  const where: EscrowWhereInput = {};
-  if (from || to) {
-    where.createdAt = {
-      ...(from ? { gte: new Date(from) } : {}),
-      ...(to ? { lte: new Date(to) } : {}),
-    };
+  const createdAt: { gte?: Date; lte?: Date } = {};
+  if (from) {
+    createdAt.gte = new Date(from);
+  }
+  if (to) {
+    createdAt.lte = new Date(to);
   }
 
   const escrows = await prisma.escrow.findMany({
-    where,
+    where: { createdAt },
     select: {
       totalAmount: true,
       platformCommission: true,
@@ -144,24 +134,19 @@ const getRevenueAnalytics = async (query: IRevenueAnalyticsQuery) => {
     orderBy: { createdAt: "asc" },
   });
 
-  const emptyBucket = (): IEscrowBucket => ({ count: 0, amount: 0 });
-
-  const byStatus: Record<EscrowStatus, IEscrowBucket> = {
-    [EscrowStatus.HELD]: emptyBucket(),
-    [EscrowStatus.RELEASED_TO_EXPERT]: emptyBucket(),
-    [EscrowStatus.REFUNDED_TO_STUDENT]: emptyBucket(),
+  const byStatus = {
+    HELD: { count: 0, amount: 0 },
+    RELEASED_TO_EXPERT: { count: 0, amount: 0 },
+    REFUNDED_TO_STUDENT: { count: 0, amount: 0 },
   };
 
-  const monthlyMap = new Map<
-    string,
-    {
-      month: string;
-      escrowCount: number;
-      grossVolume: number;
-      platformRevenue: number;
-      expertPayouts: number;
-    }
-  >();
+  const monthly: {
+    month: string;
+    escrowCount: number;
+    grossVolume: number;
+    platformRevenue: number;
+    expertPayouts: number;
+  }[] = [];
 
   let grossVolume = 0;
   let platformRevenue = 0;
@@ -171,66 +156,60 @@ const getRevenueAnalytics = async (query: IRevenueAnalyticsQuery) => {
 
   for (const escrow of escrows) {
     const totalAmount = Number(escrow.totalAmount);
-    const split = splitOf(
-      totalAmount,
-      Number(escrow.platformCommission),
-      Number(escrow.expertEarnings),
-    );
+    const commission = (totalAmount * Number(escrow.platformCommission)) / 100;
+    const payout = (totalAmount * Number(escrow.expertEarnings)) / 100;
 
-    grossVolume += totalAmount;
-
-    const bucket = byStatus[escrow.status];
-    bucket.count += 1;
-    bucket.amount = round2(bucket.amount + totalAmount);
+    grossVolume = grossVolume + totalAmount;
+    byStatus[escrow.status].count = byStatus[escrow.status].count + 1;
+    byStatus[escrow.status].amount = byStatus[escrow.status].amount + totalAmount;
 
     const month = escrow.createdAt.toISOString().slice(0, 7);
-    const monthRow = monthlyMap.get(month) ?? {
-      month,
-      escrowCount: 0,
-      grossVolume: 0,
-      platformRevenue: 0,
-      expertPayouts: 0,
-    };
-    monthRow.escrowCount += 1;
-    monthRow.grossVolume = round2(monthRow.grossVolume + totalAmount);
+    let monthRow = monthly.find((row) => row.month === month);
+    if (!monthRow) {
+      monthRow = {
+        month,
+        escrowCount: 0,
+        grossVolume: 0,
+        platformRevenue: 0,
+        expertPayouts: 0,
+      };
+      monthly.push(monthRow);
+    }
+    monthRow.escrowCount = monthRow.escrowCount + 1;
+    monthRow.grossVolume = monthRow.grossVolume + totalAmount;
 
     if (escrow.status === EscrowStatus.RELEASED_TO_EXPERT) {
-      platformRevenue += split.platformRevenue;
-      expertPayouts += split.expertPayout;
-      monthRow.platformRevenue = round2(
-        monthRow.platformRevenue + split.platformRevenue,
-      );
-      monthRow.expertPayouts = round2(
-        monthRow.expertPayouts + split.expertPayout,
-      );
+      platformRevenue = platformRevenue + commission;
+      expertPayouts = expertPayouts + payout;
+      monthRow.platformRevenue = monthRow.platformRevenue + commission;
+      monthRow.expertPayouts = monthRow.expertPayouts + payout;
     }
-
     if (escrow.status === EscrowStatus.HELD) {
-      pendingPlatformRevenue += split.platformRevenue;
+      pendingPlatformRevenue = pendingPlatformRevenue + commission;
     }
-
     if (escrow.status === EscrowStatus.REFUNDED_TO_STUDENT) {
-      refundedToStudents += totalAmount;
+      refundedToStudents = refundedToStudents + totalAmount;
     }
+  }
 
-    monthlyMap.set(month, monthRow);
+  for (const row of monthly) {
+    row.grossVolume = Number(row.grossVolume.toFixed(2));
+    row.platformRevenue = Number(row.platformRevenue.toFixed(2));
+    row.expertPayouts = Number(row.expertPayouts.toFixed(2));
   }
 
   return {
-    range: {
-      from: from ?? null,
-      to: to ?? null,
-    },
+    range: { from: from || null, to: to || null },
     totals: {
       escrowCount: escrows.length,
-      grossVolume: round2(grossVolume),
-      platformRevenue: round2(platformRevenue),
-      pendingPlatformRevenue: round2(pendingPlatformRevenue),
-      expertPayouts: round2(expertPayouts),
-      refundedToStudents: round2(refundedToStudents),
+      grossVolume: Number(grossVolume.toFixed(2)),
+      platformRevenue: Number(platformRevenue.toFixed(2)),
+      pendingPlatformRevenue: Number(pendingPlatformRevenue.toFixed(2)),
+      expertPayouts: Number(expertPayouts.toFixed(2)),
+      refundedToStudents: Number(refundedToStudents.toFixed(2)),
     },
     byStatus,
-    monthly: [...monthlyMap.values()],
+    monthly,
   };
 };
 

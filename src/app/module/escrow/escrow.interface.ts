@@ -1,9 +1,4 @@
-export interface IRevenueAnalyticsQuery {
-  from?: string;
-  to?: string;
-}
-
-export interface IEscrowBucket {
+export interface IEscrowAmount {
   count: number;
   amount: number;
 }

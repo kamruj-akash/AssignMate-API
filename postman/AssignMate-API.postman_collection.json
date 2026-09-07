@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "1c9a4d76-5f02-4e83-9a41-6b7d02e5c318",
     "name": "AssignMate API",
-    "description": "REST API for **AssignMate** - students post assignments, verified experts bid, deliver, and get paid out of escrow.\n\n### Base URL\nEverything lives under `{{baseUrl}}` = `{{serverUrl}}/api/v1`. The health check is the one exception and sits at `{{serverUrl}}/`.\n\n### Roles\n`STUDENT` | `EXPERT` | `ADMIN`\n\n### Auth\n`POST /auth/login` returns `{ accessToken, refreshToken, role }` in the body **and** sets both as httpOnly cookies. Protected routes accept either the cookie or an `Authorization: Bearer <token>` header - this collection sends the bearer header from `{{accessToken}}`, which the login test script fills in automatically.\n\nIf the access token has expired but the refresh cookie is still valid, the `auth` middleware silently mints a new access token and returns it in the `x-access-token` response header.\n\nPublic routes (`Health`, all of `Auth` except `Get Me`, `Expert / Register`, `Expert / Verify`, `Assignment / Feed`, `Assignment / Get By Id`, `Payment / Callback`, both `Review` reads) are marked **No Auth** individually.\n\n### Suggested run order\n1. `Health / Health Check`\n2. `Auth / Register User` -> `Verify Register OTP` (paste the emailed code into `{{otp}}`)\n3. `Auth / Login` as the student - fills `{{accessToken}}`\n4. `Assignment / Create Assignment` - fills `{{assignmentId}}`\n5. `Auth / Login` as the expert -> `Bid / Make Bid`\n6. `Auth / Login` as the student -> `Bid / Get Bids By Assignment` -> `Accept Bid`\n7. `Payment / Initiate Checkout` -> pay on the bKash page (bKash calls the callback)\n8. `Auth / Login` as the expert -> `Assignment / Submit Assignment`\n9. `Auth / Login` as the student -> `Assignment / Assignment Action` (`COMPLETED` releases escrow)\n10. `Review / Write Review` as the student, then `Get Expert Reviews` (public)\n11. `Escrow / Get Escrow Vault` as any party, `Payment / Payment History` as the student or an admin\n12. `Escrow / Revenue Analytics` as an admin\n\nBecause tokens are per-role, re-run `Auth / Login` with the matching credentials whenever the role changes.\n\n### Multipart routes\n`POST /expert/verify`, `POST /expert/student-register`, `POST /assignment/create` and `PATCH /assignment/:id/submit` are `multipart/form-data`. The JSON payload goes in a **single text field named `body`** (stringified JSON) - that is what `multipartDataValidationZod` parses. Files go under `documents` (max 5) or `attachment` (single). Leave `Content-Type` unset so Postman can add the boundary.\n\n### Pagination\nList endpoints take `searchTerm`, `page`, `limit`, `sortBy`, `sortOrder` and respond with:\n```json\n{ \"data\": [], \"meta\": { \"page\": 1, \"limit\": 10, \"total\": 0, \"totalPages\": 0 } }\n```\nQuery params are disabled by default - tick the ones you want.\n\n### Success shape\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"...\",\n  \"data\": {}\n}\n```\n\n### Error shape\n```json\n{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"name\": \"Error\",\n  \"message\": \"...\",\n  \"error\": {},\n  \"stack\": \"...\"\n}\n```\n`name`, `error` and `stack` are only populated when `NODE_ENV=development`.\n\n### Not covered here\n- `student` has a route file in `src/app/module/student/` but it is empty and not registered in `src/app.ts`.\n- `GET /assignment/dispute/:assignmentId` and `PATCH /assignment/dispute/:assignmentId/action` are registered in `assignment.route.ts` with `auth(Role.ADMIN)` **and no handler**, so a request to either passes the auth middleware and then hangs until the client times out. They are left out until a controller is attached.\n",
+    "description": "REST API for **AssignMate** - students post assignments, verified experts bid, deliver, and get paid out of escrow.\n\n### Base URL\nEverything lives under `{{baseUrl}}` = `{{serverUrl}}/api/v1`. The health check is the one exception and sits at `{{serverUrl}}/`.\n\n### Roles\n`STUDENT` | `EXPERT` | `ADMIN`\n\n### Auth\n`POST /auth/login` returns `{ accessToken, refreshToken, role }` in the body **and** sets both as httpOnly cookies. Protected routes accept either the cookie or an `Authorization: Bearer <token>` header - this collection sends the bearer header from `{{accessToken}}`, which the login test script fills in automatically.\n\nIf the access token has expired but the refresh cookie is still valid, the `auth` middleware silently mints a new access token and returns it in the `x-access-token` response header.\n\nPublic routes (`Health`, all of `Auth` except `Get Me`, `Expert / Register`, `Expert / Verify`, `Assignment / Feed`, `Assignment / Get By Id`, `Payment / Callback`, both `Review` reads) are marked **No Auth** individually.\n\n### Suggested run order\n1. `Health / Health Check`\n2. `Auth / Register User` -> `Verify Register OTP` (paste the emailed code into `{{otp}}`)\n3. `Auth / Login` as the student - fills `{{accessToken}}`\n4. `Assignment / Create Assignment` - fills `{{assignmentId}}`\n5. `Auth / Login` as the expert -> `Bid / Make Bid`\n6. `Auth / Login` as the student -> `Bid / Get Bids By Assignment` -> `Accept Bid`\n7. `Payment / Initiate Checkout` -> pay on the bKash page (bKash calls the callback)\n8. `Auth / Login` as the expert -> `Assignment / Submit Assignment`\n9. `Auth / Login` as the student -> `Assignment / Assignment Action` (`COMPLETED` releases escrow)\n10. `Review / Write Review` as the student, then `Get Expert Reviews` (public)\n11. `Escrow / Get Escrow Vault` as any party, `Payment / Payment History` as the student or an admin\n12. `Analytics / Student Overview`, `Expert Overview`, and as an admin `Escrow / Revenue Analytics` + `Analytics / Admin Overview`\n\nBecause tokens are per-role, re-run `Auth / Login` with the matching credentials whenever the role changes.\n\n### Multipart routes\n`POST /expert/verify`, `POST /expert/student-register`, `POST /assignment/create` and `PATCH /assignment/:id/submit` are `multipart/form-data`. The JSON payload goes in a **single text field named `body`** (stringified JSON) - that is what `multipartDataValidationZod` parses. Files go under `documents` (max 5) or `attachment` (single). Leave `Content-Type` unset so Postman can add the boundary.\n\n### Pagination\nList endpoints take `searchTerm`, `page`, `limit`, `sortBy`, `sortOrder` and respond with:\n```json\n{ \"data\": [], \"meta\": { \"page\": 1, \"limit\": 10, \"total\": 0, \"totalPages\": 0 } }\n```\nQuery params are disabled by default - tick the ones you want.\n\n### Success shape\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"...\",\n  \"data\": {}\n}\n```\n\n### Error shape\n```json\n{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"name\": \"Error\",\n  \"message\": \"...\",\n  \"error\": {},\n  \"stack\": \"...\"\n}\n```\n`name`, `error` and `stack` are only populated when `NODE_ENV=development`.\n\n### Not covered here\n- `GET /assignment/dispute/:assignmentId` and `PATCH /assignment/dispute/:assignmentId/action` are registered in `assignment.route.ts` with `auth(Role.ADMIN)` **and no handler**, so a request to either passes the auth middleware and then hangs until the client times out. They are left out until a controller is attached.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -138,7 +138,7 @@
       "key": "studentId",
       "value": "",
       "type": "string",
-      "description": "Filled by Auth / Get Me."
+      "description": "Filled by Auth / Get Me, Student / Get My Profile, or Get All Students."
     },
     {
       "key": "expertId",
@@ -1601,6 +1601,256 @@
             "auth": {
               "type": "noauth"
             }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Student",
+      "description": "Student self-service profile and the admin-side student directory.\n\n`institution` and `academicLevel` are nullable on the `students` table and are not collected at registration - `PATCH /student/me` is what fills them in.",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/student/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "student",
+                "me"
+              ]
+            },
+            "description": "**STUDENT only.** Own profile plus a `stats` block: assignments by status, pending bids received, spending (`totalPaid`, `pendingPayments`, `inEscrow`, `refunded`) and reviews written.\n\nRicher than `Auth / Get Me`, which returns the raw profile with no aggregates."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const d = pm.response.json().data;",
+                  "if (d && d.id) pm.collectionVariables.set(\"studentId\", d.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/student/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "student",
+                "me"
+              ]
+            },
+            "description": "**STUDENT only.** Every field is optional, but you must send **at least one** or the request 400s.\n\n- `name` (3-255) and `phoneNo` (6-20) update the `users` row\n- `institution` (2-255) and `academicLevel` (2-100) update the `students` row\n\nBoth writes run in one transaction. This is the **only** way to populate `institution` and `academicLevel` - registration never collects them.\n\nStrings are trimmed before the length check, so a whitespace-only value is rejected.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"institution\": \"University of Dhaka\",\n  \"academicLevel\": \"Undergraduate\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Students",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/student/get-all?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "student",
+                "get-all"
+              ],
+              "query": [
+                {
+                  "key": "searchTerm",
+                  "value": "",
+                  "description": "Matches name / email / institution / academicLevel",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "max 100",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "description": "createdAt | updatedAt | institution | academicLevel",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "description": "asc | desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**ADMIN only.** Paginated student directory; each row carries `_count.assignmentTasks`.\n\nQuery params are Zod-validated, so an unknown `sortBy` or a `limit` over 100 returns 400."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const rows = pm.response.json().data || [];",
+                  "if (rows.length && rows[0].id) pm.collectionVariables.set(\"studentId\", rows[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Student By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/student/{{studentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "student",
+                "{{studentId}}"
+              ]
+            },
+            "description": "**ADMIN only.** One student with the same `stats` block as `Get My Profile`, plus their 5 most recent assignments. 404 on an unknown id.\n\nDeclared last in the router so `me` and `get-all` are never read as a student id."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "description": "Role-aware dashboard aggregates - one call per role, no client-side fan-out.\n\nAdmin gets the platform funnel; students and experts each get only their own figures, scoped in the service rather than by a query param.",
+      "item": [
+        {
+          "name": "Admin Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/admin/overview?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "admin",
+                "overview"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-01-01T00:00:00.000Z",
+                  "description": "ISO date. Filters every model on createdAt.",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31T23:59:59.000Z",
+                  "description": "ISO date. Must be >= from, else 400.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**ADMIN only.** One call for the whole platform dashboard:\n\n- `users` - total, `byRole`, blocked\n- `experts.byVerificationStatus` - PENDING / APPROVE / REJECT\n- `assignments` - `byStatus` plus `completionRate` and `disputeRate`\n- `bids` - `byStatus` plus `acceptanceRate`\n- `payments` - `byStatus` plus `paidVolume`\n- `escrow` - `byStatus` buckets, realised `platformRevenue`, `pendingPlatformRevenue`\n- `reviews` - total and average rating\n\nEvery `byStatus` map is zero-filled across the full enum, so the shape never changes as data arrives. Rates are 0 when the denominator is 0.\n\nThis is the **headline** view - the month-by-month money breakdown lives at `Escrow / Revenue Analytics`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const d = pm.response.json().data;",
+                  "if (d) {",
+                  "  pm.test(\"status maps are zero-filled\", function () {",
+                  "    pm.expect(Object.keys(d.assignments.byStatus).length).to.eql(9);",
+                  "    pm.expect(Object.keys(d.bids.byStatus).length).to.eql(3);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Student Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/student/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "student",
+                "overview"
+              ]
+            },
+            "description": "**STUDENT only.** Their own numbers: assignments `byStatus` (plus `completed` and `awaitingPayment`), bids received `byStatus`, spending (`totalPaid`, `pendingPayments`, `inEscrow`, `refunded`) and `reviewsWritten`.\n\nSame figures as the `stats` block on `Student / Get My Profile`, without the profile fields."
+          },
+          "response": []
+        },
+        {
+          "name": "Expert Overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/analytics/expert/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "analytics",
+                "expert",
+                "overview"
+              ]
+            },
+            "description": "**EXPERT only.** Their own numbers:\n\n- `bids` - `byStatus` plus `winRate`\n- `assignments` - the ones they won, `byStatus`\n- `earnings` - `walletBalance` (the credited figure), `released` (85% share of `RELEASED_TO_EXPERT` escrows) and `pendingInEscrow` (their share of escrows still `HELD`)\n- `reputation` - review count and average rating\n\n`released` is computed from escrow rows and should track `walletBalance`; a drift between them means a payout did not land."
           },
           "response": []
         }

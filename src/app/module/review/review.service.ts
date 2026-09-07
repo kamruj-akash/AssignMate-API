@@ -3,12 +3,11 @@ import {
   AssignmentStatus,
   Role,
 } from "../../../../prisma/src/generated/prisma/enums";
-import type { ReviewWhereInput } from "../../../../prisma/src/generated/prisma/models";
 import type { IQuery } from "../../interface";
 import { prisma } from "../../lib/prisma";
 import type { RequestUser } from "../../middleware/authCheck";
 import { AppError } from "../../utils/AppError";
-import type { ICreateReview, IRatingDistribution } from "./review.interface";
+import type { ICreateReview } from "./review.interface";
 
 const writeReview = async (payload: ICreateReview, reqUser: RequestUser) => {
   const { assignmentId, rating, comment } = payload;
@@ -21,29 +20,31 @@ const writeReview = async (payload: ICreateReview, reqUser: RequestUser) => {
     throw new AppError(httpStatus.NOT_FOUND, "Student profile not found");
   }
 
-  const assignment = await prisma.assignment.findUnique({
+  const existAssignment = await prisma.assignment.findUnique({
     where: { id: assignmentId, studentId: existUser.student.id },
-    include: { review: { select: { id: true } } },
   });
-  if (!assignment) {
+  if (!existAssignment) {
     throw new AppError(httpStatus.NOT_FOUND, "Assignment not found");
   }
 
-  if (assignment.status !== AssignmentStatus.COMPLETED) {
+  if (existAssignment.status !== AssignmentStatus.COMPLETED) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
       "You can only review a completed assignment",
     );
   }
 
-  if (!assignment.assignedExpertId) {
+  if (!existAssignment.assignedExpertId) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
       "This assignment has no assigned expert to review",
     );
   }
 
-  if (assignment.review) {
+  const existReview = await prisma.review.findUnique({
+    where: { assignmentId },
+  });
+  if (existReview) {
     throw new AppError(
       httpStatus.CONFLICT,
       "You have already reviewed this assignment",
@@ -52,8 +53,8 @@ const writeReview = async (payload: ICreateReview, reqUser: RequestUser) => {
 
   const review = await prisma.review.create({
     data: {
-      assignmentId: assignment.id,
-      expertId: assignment.assignedExpertId,
+      assignmentId: existAssignment.id,
+      expertId: existAssignment.assignedExpertId,
       studentId: existUser.id,
       rating,
       comment,
@@ -75,13 +76,13 @@ const writeReview = async (payload: ICreateReview, reqUser: RequestUser) => {
 };
 
 const getExpertReviews = async (expertId: string, query: IQuery) => {
+  const rating = Number(query.rating) || undefined;
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
   const sortBy = query.sortBy || "createdAt";
-  const sortOrder = query.sortOrder === "asc" ? "asc" : "desc";
-  const rating = query.rating ? Number(query.rating) : undefined;
+  const sortOrder = query.sortOrder || "desc";
 
-  const expert = await prisma.expert.findUnique({
+  const existExpert = await prisma.expert.findUnique({
     where: { id: expertId },
     select: {
       id: true,
@@ -90,67 +91,55 @@ const getExpertReviews = async (expertId: string, query: IQuery) => {
       user: { select: { id: true, name: true } },
     },
   });
-  if (!expert) {
+  if (!existExpert) {
     throw new AppError(httpStatus.NOT_FOUND, "Expert not found");
   }
 
-  const listWhere: ReviewWhereInput = {
-    expertId,
-    ...(rating ? { rating } : {}),
-  };
+  const reviews = await prisma.review.findMany({
+    where: { expertId, rating },
+    select: {
+      id: true,
+      rating: true,
+      comment: true,
+      createdAt: true,
+      assignment: { select: { id: true, title: true } },
+      student: { select: { id: true, name: true } },
+    },
+    skip: (page - 1) * limit,
+    take: limit,
+    orderBy: { [sortBy]: sortOrder },
+  });
 
-  const [reviews, total, summary, grouped] = await Promise.all([
-    prisma.review.findMany({
-      where: listWhere,
-      select: {
-        id: true,
-        rating: true,
-        comment: true,
-        createdAt: true,
-        assignment: { select: { id: true, title: true } },
-        student: { select: { id: true, name: true } },
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-      orderBy: { [sortBy]: sortOrder },
-    }),
-    prisma.review.count({ where: listWhere }),
-    prisma.review.aggregate({
-      where: { expertId },
-      _avg: { rating: true },
-      _count: { _all: true },
-    }),
-    prisma.review.groupBy({
-      by: ["rating"],
-      where: { expertId },
-      _count: { _all: true },
-    }),
-  ]);
+  const total = await prisma.review.count({ where: { expertId, rating } });
+  const totalPages = Math.ceil(total / limit);
 
-  const distribution: IRatingDistribution = {
-    "1": 0,
-    "2": 0,
-    "3": 0,
-    "4": 0,
-    "5": 0,
-  };
-  for (const row of grouped) {
-    const key = String(row.rating) as keyof IRatingDistribution;
-    if (key in distribution) {
-      distribution[key] = row._count._all;
-    }
+  const allReviews = await prisma.review.findMany({
+    where: { expertId },
+    select: { rating: true },
+  });
+
+  const distribution = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
+  let ratingSum = 0;
+  for (const review of allReviews) {
+    ratingSum = ratingSum + review.rating;
+    if (review.rating === 1) distribution["1"] = distribution["1"] + 1;
+    if (review.rating === 2) distribution["2"] = distribution["2"] + 1;
+    if (review.rating === 3) distribution["3"] = distribution["3"] + 1;
+    if (review.rating === 4) distribution["4"] = distribution["4"] + 1;
+    if (review.rating === 5) distribution["5"] = distribution["5"] + 1;
   }
 
-  const totalPages = Math.ceil(total / limit);
+  const averageRating =
+    allReviews.length === 0
+      ? 0
+      : Number((ratingSum / allReviews.length).toFixed(2));
 
   return {
     data: {
-      expert,
+      expert: existExpert,
       summary: {
-        totalReviews: summary._count._all,
-        averageRating: summary._avg.rating
-          ? Math.round(summary._avg.rating * 100) / 100
-          : 0,
+        totalReviews: allReviews.length,
+        averageRating,
         distribution,
       },
       reviews,

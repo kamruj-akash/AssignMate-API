@@ -13,9 +13,9 @@ export const CreateReviewZod = z.object({
     .max(5, "Rating must be at most 5"),
   comment: z
     .string("Comment must be a string")
+    .trim()
     .min(3, "Comment must be at least 3 characters")
     .max(1000, "Comment must be at most 1000 characters")
-    .trim()
     .optional(),
 });
 

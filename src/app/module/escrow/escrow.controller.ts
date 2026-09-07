@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
 import httpStatus from "http-status";
+import type { IQuery } from "../../interface";
 import type { RequestUser } from "../../middleware/authCheck";
 import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
-import type { IRevenueAnalyticsQuery } from "./escrow.interface";
 import { escrowService } from "./escrow.service";
 
 const getEscrowByAssignmentId = catchAsync(
@@ -23,9 +23,8 @@ const getEscrowByAssignmentId = catchAsync(
 );
 
 const getRevenueAnalytics = catchAsync(async (req: Request, res: Response) => {
-  const analytics = await escrowService.getRevenueAnalytics(
-    req.query as IRevenueAnalyticsQuery,
-  );
+  const query: IQuery = req.query;
+  const analytics = await escrowService.getRevenueAnalytics(query);
 
   sendResponse(res, {
     success: true,

@@ -6,10 +6,7 @@ import {
   PaymentStatus,
   Role,
 } from "../../../../prisma/src/generated/prisma/enums";
-import type {
-  PaymentInclude,
-  PaymentWhereInput,
-} from "../../../../prisma/src/generated/prisma/models";
+import type { PaymentWhereInput } from "../../../../prisma/src/generated/prisma/models";
 import envConfig from "../../config/env";
 import type { IQuery } from "../../interface";
 import { getBkashIdToken } from "../../lib/bkash";
@@ -213,138 +210,91 @@ const bkashCallback = async (query: Record<string, any>) => {
   );
 };
 
-const PAYMENT_SORTABLE_FIELDS = [
-  "createdAt",
-  "updatedAt",
-  "amount",
-  "status",
-  "paidAt",
-];
-
 const paymentHistory = async (query: IQuery, user: RequestUser) => {
   const searchTerm = query.searchTerm || "";
   const status = query.status as PaymentStatus | undefined;
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
-  const sortBy = PAYMENT_SORTABLE_FIELDS.includes(query.sortBy as string)
-    ? (query.sortBy as string)
-    : "createdAt";
-  const sortOrder = query.sortOrder === "asc" ? "asc" : "desc";
+  const sortBy = query.sortBy || "createdAt";
+  const sortOrder = query.sortOrder || "desc";
 
-  const userExist = await prisma.user.findUnique({
-    where: {
-      id: user.userId,
-    },
-    include: {
-      student: true,
-    },
+  const existUser = await prisma.user.findUnique({
+    where: { id: user.userId },
+    include: { student: true },
   });
-  if (!userExist) {
-    throw new AppError(httpStatus.NOT_FOUND, "User not found.");
+  if (!existUser) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
   }
 
   const andConditions: PaymentWhereInput[] = [];
-  const isAdmin = userExist.role === Role.ADMIN;
 
-  // students only ever see the payments of their own assignments,
-  // admins see every payment in the system.
-  if (!isAdmin) {
-    if (userExist.role !== Role.STUDENT) {
-      throw new AppError(
-        httpStatus.FORBIDDEN,
-        "Only students and admins can view payment history",
-      );
-    }
-    if (!userExist.student) {
+  if (existUser.role === Role.STUDENT) {
+    if (!existUser.student) {
       throw new AppError(httpStatus.NOT_FOUND, "Student profile not found");
     }
     andConditions.push({
-      assignment: { studentId: userExist.student.id },
+      assignment: { studentId: existUser.student.id },
     });
   }
 
   if (status) {
-    if (!Object.values(PaymentStatus).includes(status)) {
-      throw new AppError(
-        httpStatus.BAD_REQUEST,
-        `Invalid status. Allowed values: ${Object.values(PaymentStatus).join(", ")}`,
-      );
-    }
     andConditions.push({ status });
   }
 
   if (searchTerm) {
-    const orConditions: PaymentWhereInput[] = [
-      { transactionId: { contains: searchTerm, mode: "insensitive" } },
-      { bkashTrxId: { contains: searchTerm, mode: "insensitive" } },
-      { merchantInvoiceNumber: { contains: searchTerm, mode: "insensitive" } },
-      { payerReference: { contains: searchTerm, mode: "insensitive" } },
-      {
-        assignment: {
-          title: { contains: searchTerm, mode: "insensitive" },
+    andConditions.push({
+      OR: [
+        { transactionId: { contains: searchTerm, mode: "insensitive" } },
+        { bkashTrxId: { contains: searchTerm, mode: "insensitive" } },
+        { merchantInvoiceNumber: { contains: searchTerm, mode: "insensitive" } },
+        { payerReference: { contains: searchTerm, mode: "insensitive" } },
+        {
+          assignment: { title: { contains: searchTerm, mode: "insensitive" } },
         },
-      },
-    ];
-
-    if (isAdmin) {
-      orConditions.push({
-        assignment: {
-          student: {
-            user: {
-              OR: [
-                { name: { contains: searchTerm, mode: "insensitive" } },
-                { email: { contains: searchTerm, mode: "insensitive" } },
-              ],
+        {
+          assignment: {
+            student: {
+              user: { name: { contains: searchTerm, mode: "insensitive" } },
             },
           },
         },
-      });
-    }
-
-    andConditions.push({ OR: orConditions });
+        {
+          assignment: {
+            student: {
+              user: { email: { contains: searchTerm, mode: "insensitive" } },
+            },
+          },
+        },
+      ],
+    });
   }
 
-  const include: PaymentInclude = {
-    assignment: {
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        budget: true,
-        deadline: true,
-        ...(isAdmin
-          ? {
-              student: {
-                select: {
-                  id: true,
-                  institution: true,
-                  user: { select: { id: true, name: true, email: true } },
-                },
-              },
-            }
-          : {}),
+  const payments = await prisma.payment.findMany({
+    where: { AND: andConditions },
+    include: {
+      assignment: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          budget: true,
+          deadline: true,
+          student: {
+            select: {
+              id: true,
+              institution: true,
+              user: { select: { id: true, name: true, email: true } },
+            },
+          },
+        },
       },
     },
-  };
-
-  const payments = await prisma.payment.findMany({
-    where: {
-      AND: andConditions,
-    },
-    include,
     skip: (page - 1) * limit,
     take: limit,
-    orderBy: {
-      [sortBy]: sortOrder,
-    },
+    orderBy: { [sortBy]: sortOrder },
   });
 
-  const total = await prisma.payment.count({
-    where: {
-      AND: andConditions,
-    },
-  });
-
+  const total = await prisma.payment.count({ where: { AND: andConditions } });
   const totalPages = Math.ceil(total / limit);
 
   return {
