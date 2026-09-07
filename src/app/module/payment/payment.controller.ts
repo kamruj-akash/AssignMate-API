@@ -1,10 +1,11 @@
+import type { Request, Response } from "express";
 import httpStatus from "http-status";
 import type { RequestUser } from "../../middleware/authCheck";
 import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import { paymentService } from "./payment.service";
 
-const initiateCheckout = catchAsync(async (req, res) => {
+const initiateCheckout = catchAsync(async (req: Request, res: Response) => {
   const checkoutData = await paymentService.initiateCheckout(
     req.params.assignmentId as string,
     req.user as RequestUser,
@@ -18,7 +19,7 @@ const initiateCheckout = catchAsync(async (req, res) => {
   });
 });
 
-const bkashCallback = catchAsync(async (req, res) => {
+const bkashCallback = catchAsync(async (req: Request, res: Response) => {
   const callbackData = await paymentService.bkashCallback(req.query);
   res.redirect(callbackData.redirectUrl as string);
   sendResponse(res, {
@@ -29,7 +30,10 @@ const bkashCallback = catchAsync(async (req, res) => {
   });
 });
 
+const paymentHistory = catchAsync(async (req: Request, res: Response) => {});
+
 export const paymentController = {
   initiateCheckout,
   bkashCallback,
+  paymentHistory,
 };

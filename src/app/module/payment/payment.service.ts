@@ -6,6 +6,7 @@ import {
   PaymentStatus,
 } from "../../../../prisma/src/generated/prisma/enums";
 import envConfig from "../../config/env";
+import type { IQuery } from "../../interface";
 import { getBkashIdToken } from "../../lib/bkash";
 import { prisma } from "../../lib/prisma";
 import type { RequestUser } from "../../middleware/authCheck";
@@ -207,7 +208,29 @@ const bkashCallback = async (query: Record<string, any>) => {
   );
 };
 
+const paymentHistory = async (query: IQuery, user: RequestUser) => {
+  const searchTerm = query.searchTerm || "";
+  const status = query.status as AssignmentStatus | undefined;
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const sortBy = query.sortBy || "createdAt";
+  const sortOrder = query.sortOrder || "asc";
+
+  const userExist = await prisma.user.findUnique({
+    where: {
+      id: user.userId,
+    },
+    include: {
+      student: true,
+    },
+  });
+  if (!userExist) {
+    throw new Error("User not found.");
+  }
+};
+
 export const paymentService = {
   initiateCheckout,
   bkashCallback,
+  paymentHistory,
 };

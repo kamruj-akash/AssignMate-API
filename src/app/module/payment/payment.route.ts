@@ -13,5 +13,9 @@ router.post(
   paymentController.initiateCheckout,
 );
 router.get("/callback/bkash", paymentController.bkashCallback);
-
+router.get(
+  "/history",
+  auth(Role.ADMIN, Role.STUDENT),
+  paymentController.paymentHistory,
+);
 export const PaymentRoute = router;
