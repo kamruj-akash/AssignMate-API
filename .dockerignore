@@ -1,0 +1,13 @@
+.git
+.gitignore
+node_modules
+dist
+.env
+.env.*
+.claude
+postman
+skills-lock.json
+README.md
+CLAUDE.md
+*.log
+.DS_Store
