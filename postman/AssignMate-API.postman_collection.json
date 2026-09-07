@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "1c9a4d76-5f02-4e83-9a41-6b7d02e5c318",
     "name": "AssignMate API",
-    "description": "REST API for **AssignMate** - students post assignments, verified experts bid, deliver, and get paid out of escrow.\n\n### Base URL\nEverything lives under `{{baseUrl}}` = `{{serverUrl}}/api/v1`. The health check is the one exception and sits at `{{serverUrl}}/`.\n\n### Roles\n`STUDENT` | `EXPERT` | `ADMIN`\n\n### Auth\n`POST /auth/login` returns `{ accessToken, refreshToken, role }` in the body **and** sets both as httpOnly cookies. Protected routes accept either the cookie or an `Authorization: Bearer <token>` header - this collection sends the bearer header from `{{accessToken}}`, which the login test script fills in automatically.\n\nIf the access token has expired but the refresh cookie is still valid, the `auth` middleware silently mints a new access token and returns it in the `x-access-token` response header.\n\nPublic routes (`Health`, all of `Auth` except `Get Me`, `Expert / Register`, `Expert / Verify`, `Assignment / Feed`, `Assignment / Get By Id`, `Payment / Callback`) are marked **No Auth** individually.\n\n### Suggested run order\n1. `Health / Health Check`\n2. `Auth / Register User` -> `Verify Register OTP` (paste the emailed code into `{{otp}}`)\n3. `Auth / Login` as the student - fills `{{accessToken}}`\n4. `Assignment / Create Assignment` - fills `{{assignmentId}}`\n5. `Auth / Login` as the expert -> `Bid / Make Bid`\n6. `Auth / Login` as the student -> `Bid / Get Bids By Assignment` -> `Accept Bid`\n7. `Payment / Initiate Checkout` -> pay on the bKash page (bKash calls the callback)\n8. `Auth / Login` as the expert -> `Assignment / Submit Assignment`\n9. `Auth / Login` as the student -> `Assignment / Assignment Action` (`COMPLETED` releases escrow)\n10. `Payment / Payment History` as either the student or an admin\n\nBecause tokens are per-role, re-run `Auth / Login` with the matching credentials whenever the role changes.\n\n### Multipart routes\n`POST /expert/verify`, `POST /expert/student-register`, `POST /assignment/create` and `PATCH /assignment/:id/submit` are `multipart/form-data`. The JSON payload goes in a **single text field named `body`** (stringified JSON) - that is what `multipartDataValidationZod` parses. Files go under `documents` (max 5) or `attachment` (single). Leave `Content-Type` unset so Postman can add the boundary.\n\n### Pagination\nList endpoints take `searchTerm`, `page`, `limit`, `sortBy`, `sortOrder` and respond with:\n```json\n{ \"data\": [], \"meta\": { \"page\": 1, \"limit\": 10, \"total\": 0, \"totalPages\": 0 } }\n```\nQuery params are disabled by default - tick the ones you want.\n\n### Success shape\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"...\",\n  \"data\": {}\n}\n```\n\n### Error shape\n```json\n{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"name\": \"Error\",\n  \"message\": \"...\",\n  \"error\": {},\n  \"stack\": \"...\"\n}\n```\n`name`, `error` and `stack` are only populated when `NODE_ENV=development`.\n\n### Not yet mounted\n`escrow`, `review` and `student` have route files in `src/app/module/` but they are empty and not registered in `src/app.ts`, so they have no requests here.\n",
+    "description": "REST API for **AssignMate** - students post assignments, verified experts bid, deliver, and get paid out of escrow.\n\n### Base URL\nEverything lives under `{{baseUrl}}` = `{{serverUrl}}/api/v1`. The health check is the one exception and sits at `{{serverUrl}}/`.\n\n### Roles\n`STUDENT` | `EXPERT` | `ADMIN`\n\n### Auth\n`POST /auth/login` returns `{ accessToken, refreshToken, role }` in the body **and** sets both as httpOnly cookies. Protected routes accept either the cookie or an `Authorization: Bearer <token>` header - this collection sends the bearer header from `{{accessToken}}`, which the login test script fills in automatically.\n\nIf the access token has expired but the refresh cookie is still valid, the `auth` middleware silently mints a new access token and returns it in the `x-access-token` response header.\n\nPublic routes (`Health`, all of `Auth` except `Get Me`, `Expert / Register`, `Expert / Verify`, `Assignment / Feed`, `Assignment / Get By Id`, `Payment / Callback`, both `Review` reads) are marked **No Auth** individually.\n\n### Suggested run order\n1. `Health / Health Check`\n2. `Auth / Register User` -> `Verify Register OTP` (paste the emailed code into `{{otp}}`)\n3. `Auth / Login` as the student - fills `{{accessToken}}`\n4. `Assignment / Create Assignment` - fills `{{assignmentId}}`\n5. `Auth / Login` as the expert -> `Bid / Make Bid`\n6. `Auth / Login` as the student -> `Bid / Get Bids By Assignment` -> `Accept Bid`\n7. `Payment / Initiate Checkout` -> pay on the bKash page (bKash calls the callback)\n8. `Auth / Login` as the expert -> `Assignment / Submit Assignment`\n9. `Auth / Login` as the student -> `Assignment / Assignment Action` (`COMPLETED` releases escrow)\n10. `Review / Write Review` as the student, then `Get Expert Reviews` (public)\n11. `Escrow / Get Escrow Vault` as any party, `Payment / Payment History` as the student or an admin\n12. `Escrow / Revenue Analytics` as an admin\n\nBecause tokens are per-role, re-run `Auth / Login` with the matching credentials whenever the role changes.\n\n### Multipart routes\n`POST /expert/verify`, `POST /expert/student-register`, `POST /assignment/create` and `PATCH /assignment/:id/submit` are `multipart/form-data`. The JSON payload goes in a **single text field named `body`** (stringified JSON) - that is what `multipartDataValidationZod` parses. Files go under `documents` (max 5) or `attachment` (single). Leave `Content-Type` unset so Postman can add the boundary.\n\n### Pagination\nList endpoints take `searchTerm`, `page`, `limit`, `sortBy`, `sortOrder` and respond with:\n```json\n{ \"data\": [], \"meta\": { \"page\": 1, \"limit\": 10, \"total\": 0, \"totalPages\": 0 } }\n```\nQuery params are disabled by default - tick the ones you want.\n\n### Success shape\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"...\",\n  \"data\": {}\n}\n```\n\n### Error shape\n```json\n{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"name\": \"Error\",\n  \"message\": \"...\",\n  \"error\": {},\n  \"stack\": \"...\"\n}\n```\n`name`, `error` and `stack` are only populated when `NODE_ENV=development`.\n\n### Not covered here\n- `student` has a route file in `src/app/module/student/` but it is empty and not registered in `src/app.ts`.\n- `GET /assignment/dispute/:assignmentId` and `PATCH /assignment/dispute/:assignmentId/action` are registered in `assignment.route.ts` with `auth(Role.ADMIN)` **and no handler**, so a request to either passes the auth middleware and then hangs until the client times out. They are left out until a controller is attached.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -1380,6 +1380,229 @@
               }
             }
           ]
+        }
+      ]
+    },
+    {
+      "name": "Escrow",
+      "description": "Escrow vault inspection and platform revenue reporting.\n\nAn escrow row is created `HELD` by the bKash callback, and flips to `RELEASED_TO_EXPERT` when the student marks the assignment `COMPLETED` via `Assignment / Assignment Action`. `platformCommission` and `expertEarnings` are stored as **percentages** (15 / 85 by default).",
+      "item": [
+        {
+          "name": "Get Escrow Vault",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/escrow/vault/{{assignmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "escrow",
+                "vault",
+                "{{assignmentId}}"
+              ]
+            },
+            "description": "The escrow record behind one assignment, with the commission split resolved into amounts.\n\n**ADMIN | STUDENT | EXPERT**, but scoped:\n\n- `ADMIN` - any vault, and the response includes the owning `student`\n- `STUDENT` - only assignments they posted\n- `EXPERT` - only assignments they were assigned to\n\nAnyone else on the record gets 403; a missing escrow is 404 (escrow rows are created by the bKash callback, so an unpaid assignment has none).\n\n`breakdown` turns the stored **percentages** (`platformCommission` 15, `expertEarnings` 85) into `platformRevenue` / `expertPayout` using the same rounding as the payout in `Assignment Action`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const d = pm.response.json().data;",
+                  "if (d && d.breakdown) {",
+                  "  pm.test(\"split adds up to the total\", function () {",
+                  "    const sum = d.breakdown.platformRevenue + d.breakdown.expertPayout;",
+                  "    pm.expect(Math.abs(sum - d.totalAmount)).to.be.below(0.02);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revenue Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/escrow/admin/revenue-analytics?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "escrow",
+                "admin",
+                "revenue-analytics"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-01-01T00:00:00.000Z",
+                  "description": "ISO date. Filters on escrow createdAt.",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31T23:59:59.000Z",
+                  "description": "ISO date. Must be >= from, else 400.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**ADMIN only.** Platform earnings rolled up across every escrow.\n\n- `totals.grossVolume` - everything that ever entered escrow\n- `totals.platformRevenue` - commission **realised** on `RELEASED_TO_EXPERT` escrows\n- `totals.pendingPlatformRevenue` - commission still sitting in `HELD` escrows\n- `totals.expertPayouts` - what experts have actually been credited\n- `byStatus` - count + amount per `EscrowStatus`\n- `monthly` - the same figures bucketed by the month the escrow was **funded** (`createdAt`), so a row's revenue is the share of that month's escrows since released\n\nBoth date params are optional; omit them for all-time."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const t = (pm.response.json().data || {}).totals;",
+                  "if (t) {",
+                  "  pm.test(\"totals are numbers\", function () {",
+                  "    pm.expect(t.grossVolume).to.be.a(\"number\");",
+                  "    pm.expect(t.platformRevenue).to.be.a(\"number\");",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Review",
+      "description": "Students rate the expert once an assignment is `COMPLETED`; the reads are public so expert reputation can be shown to anyone browsing.",
+      "item": [
+        {
+          "name": "Write Review",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/review/write",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "review",
+                "write"
+              ]
+            },
+            "description": "**STUDENT only.** One review per assignment.\n\nGuards, in order: the assignment must be **theirs** (404), must be `COMPLETED` (400), must have an assigned expert (400), and must not already be reviewed (409).\n\n- `rating` - integer 1-5\n- `comment` - optional, 3-1000 chars\n\nNote `Review.studentId` stores the **User** id, while `expertId` is the Expert profile id.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignmentId\": \"{{assignmentId}}\",\n  \"rating\": 5,\n  \"comment\": \"Delivered early and the write-up was excellent.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "",
+                  "const d = pm.response.json().data;",
+                  "if (d && d.expertId) pm.collectionVariables.set(\"expertId\", d.expertId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Expert Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/review/expert/{{expertId}}?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "review",
+                "expert",
+                "{{expertId}}"
+              ],
+              "query": [
+                {
+                  "key": "rating",
+                  "value": "5",
+                  "description": "Filter the list to one rating, 1-5",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "max 100",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "description": "createdAt | updatedAt | rating",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "description": "asc | desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Public expert reputation view - no auth. 404 if the expert id is unknown.\n\nReturns the expert, a `summary` (`totalReviews`, `averageRating`, and a 1-5 `distribution`) and the paginated `reviews`.\n\nThe `rating` filter narrows **the list only** - the summary always reflects every review, so the star breakdown stays stable while you filter.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Review By Assignment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/review/{{assignmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "review",
+                "{{assignmentId}}"
+              ]
+            },
+            "description": "Public. The single review attached to an assignment (`assignmentId` is unique on `Review`). 404 when the assignment has not been reviewed.\n\nDeclared after `/expert/:expertId` in the router so `expert` is never read as an assignment id.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
         }
       ]
     }
