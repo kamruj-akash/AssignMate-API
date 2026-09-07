@@ -15,6 +15,7 @@ const envConfig = {
   backend_url: process.env.BACKEND_URL,
   api_base_url: process.env.APP_BASE_URL,
   frontend_url: process.env.FRONTEND_URL,
+  default_password: process.env.DEFAULT_PASSWORD,
   bcrypt_salt_rounds: process.env.BCRYPT_SALT_ROUNDS as string,
 
   // jwt

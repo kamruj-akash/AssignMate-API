@@ -7,7 +7,7 @@ import envConfig from "../config/env";
 import { prisma } from "../lib/prisma";
 
 const password = await bcrypt.hash(
-  "123456",
+  envConfig.default_password || "123456",
   Number(envConfig.bcrypt_salt_rounds),
 );
 

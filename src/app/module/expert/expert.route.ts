@@ -36,7 +36,7 @@ router.post(
   expertController.approveExpert,
 );
 router.post(
-  "/student-register",
+  "/student-apply",
   auth(Role.STUDENT),
   upload.fields([{ name: "documents", maxCount: 5 }]),
   multipartDataValidationZod(StudentRegisterExpertZod),

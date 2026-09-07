@@ -187,6 +187,18 @@ const studentRegisterExpert = async (
       "You are not authorized to register as an expert",
     );
   }
+  if (isUserExist?.role === Role.EXPERT) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "You are already registered as an expert",
+    );
+  }
+  if (!documents || documents.length === 0) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "At least one document is required for verification",
+    );
+  }
 
   const uploadedDocuments = await Promise.all(
     documents.map((doc) => {
