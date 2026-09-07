@@ -1,7 +1,12 @@
-import dotenv from "dotenv";
-import path from "node:path";
-
-dotenv.config({ path: path.join(process.cwd(), ".env") });
+// Bun auto-loads .env locally and Render injects env vars straight into the
+// process, so no dotenv shim is needed. `loadEnvFile` covers plain `node`
+// invocations; it throws when there is no .env, which is the normal case on the
+// platform.
+try {
+  process.loadEnvFile?.();
+} catch {
+  // no local .env file — env vars come from the platform
+}
 
 const envConfig = {
   node_env: process.env.NODE_ENV,
@@ -26,10 +31,6 @@ const envConfig = {
 
   // redis
   redis_url: process.env.REDIS_URL,
-  redis_user: process.env.REDIS_USER,
-  redis_pass: process.env.REDIS_PASS,
-  redis_host: process.env.REDIS_HOST,
-  redis_port: process.env.REDIS_PORT,
 
   // cloudinary
   cloudinary_cloud_name: process.env.CLOUDINARY_NAME,
