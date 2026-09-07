@@ -41,7 +41,7 @@ app.use("/api/v1/analytics", AnalyticsRoute);
 
 // Health Check
 app.get("/", (req: Request, res: Response) => {
-  res.status(200).json({ message: "Hello Assignment Bridge V1.0!" });
+  res.status(200).json({ message: "Hello AssignMate V1.0!" });
 });
 
 app.use(notFound);

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "1c9a4d76-5f02-4e83-9a41-6b7d02e5c318",
     "name": "AssignMate API",
-    "description": "REST API for **AssignMate** - students post assignments, verified experts bid, deliver, and get paid out of escrow.\n\n### Base URL\nEverything lives under `{{baseUrl}}` = `{{serverUrl}}/api/v1`. The health check is the one exception and sits at `{{serverUrl}}/`.\n\n### Roles\n`STUDENT` | `EXPERT` | `ADMIN`\n\n### Auth\n`POST /auth/login` returns `{ accessToken, refreshToken, role }` in the body **and** sets both as httpOnly cookies. Protected routes accept either the cookie or an `Authorization: Bearer <token>` header - this collection sends the bearer header from `{{accessToken}}`, which the login test script fills in automatically.\n\nIf the access token has expired but the refresh cookie is still valid, the `auth` middleware silently mints a new access token and returns it in the `x-access-token` response header.\n\nPublic routes (`Health`, all of `Auth` except `Get Me`, `Expert / Register`, `Expert / Verify`, `Assignment / Feed`, `Assignment / Get By Id`, `Payment / Callback`, both `Review` reads) are marked **No Auth** individually.\n\n### Suggested run order\n1. `Health / Health Check`\n2. `Auth / Register User` -> `Verify Register OTP` (paste the emailed code into `{{otp}}`)\n3. `Auth / Login` as the student - fills `{{accessToken}}`\n4. `Assignment / Create Assignment` - fills `{{assignmentId}}`\n5. `Auth / Login` as the expert -> `Bid / Make Bid`\n6. `Auth / Login` as the student -> `Bid / Get Bids By Assignment` -> `Accept Bid`\n7. `Payment / Initiate Checkout` -> pay on the bKash page (bKash calls the callback)\n8. `Auth / Login` as the expert -> `Assignment / Submit Assignment`\n9. `Auth / Login` as the student -> `Assignment / Assignment Action` (`COMPLETED` releases escrow)\n10. `Review / Write Review` as the student, then `Get Expert Reviews` (public)\n11. `Escrow / Get Escrow Vault` as any party, `Payment / Payment History` as the student or an admin\n12. `Analytics / Student Overview`, `Expert Overview`, and as an admin `Escrow / Revenue Analytics` + `Analytics / Admin Overview`\n\nBecause tokens are per-role, re-run `Auth / Login` with the matching credentials whenever the role changes.\n\n### Multipart routes\n`POST /expert/verify`, `POST /expert/student-register`, `POST /assignment/create` and `PATCH /assignment/:id/submit` are `multipart/form-data`. The JSON payload goes in a **single text field named `body`** (stringified JSON) - that is what `multipartDataValidationZod` parses. Files go under `documents` (max 5) or `attachment` (single). Leave `Content-Type` unset so Postman can add the boundary.\n\n### Pagination\nList endpoints take `searchTerm`, `page`, `limit`, `sortBy`, `sortOrder` and respond with:\n```json\n{ \"data\": [], \"meta\": { \"page\": 1, \"limit\": 10, \"total\": 0, \"totalPages\": 0 } }\n```\nQuery params are disabled by default - tick the ones you want.\n\n### Success shape\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"...\",\n  \"data\": {}\n}\n```\n\n### Error shape\n```json\n{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"name\": \"Error\",\n  \"message\": \"...\",\n  \"error\": {},\n  \"stack\": \"...\"\n}\n```\n`name`, `error` and `stack` are only populated when `NODE_ENV=development`.\n\n### Not covered here\n- `GET /assignment/dispute/:assignmentId` and `PATCH /assignment/dispute/:assignmentId/action` are registered in `assignment.route.ts` with `auth(Role.ADMIN)` **and no handler**, so a request to either passes the auth middleware and then hangs until the client times out. They are left out until a controller is attached.\n",
+    "description": "REST API for **AssignMate** - students post assignments, verified experts bid, deliver, and get paid out of escrow.\n\n### Base URL\nEverything lives under `{{baseUrl}}` = `{{serverUrl}}/api/v1`. The health check is the one exception and sits at `{{serverUrl}}/`.\n\n### Roles\n`STUDENT` | `EXPERT` | `ADMIN`\n\n### Auth\n`POST /auth/login` returns `{ accessToken, refreshToken, role }` in the body **and** sets both as httpOnly cookies. Protected routes accept either the cookie or an `Authorization: Bearer <token>` header - this collection sends the bearer header from `{{accessToken}}`, which the login test script fills in automatically.\n\nIf the access token has expired but the refresh cookie is still valid, the `auth` middleware silently mints a new access token and returns it in the `x-access-token` response header.\n\nPublic routes (`Health`, all of `Auth` except `Get Me`, `Expert / Register`, `Expert / Verify`, `Assignment / Feed`, `Assignment / Get By Id`, `Payment / Callback`, both `Review` reads) are marked **No Auth** individually.\n\n### Suggested run order\n1. `Health / Health Check`\n2. `Auth / Register User` -> `Verify Register OTP` (paste the emailed code into `{{otp}}`)\n3. `Auth / Login` as the student - fills `{{accessToken}}`\n4. `Assignment / Create Assignment` - fills `{{assignmentId}}`\n5. `Auth / Login as Expert` -> `Bid / Make Bid`\n6. `Auth / Login` (student) -> `Bid / Get Bids By Assignment` -> `Accept Bid`\n7. `Payment / Initiate Checkout` -> pay on the bKash page (bKash calls the callback)\n8. `Auth / Login as Expert` -> `Assignment / Submit Assignment - Mark In Progress` -> `Submit Assignment`\n9. `Auth / Login` (student) -> `Assignment / Assignment Action` (`COMPLETED` releases escrow)\n10. `Review / Write Review` as the student, then `Get Expert Reviews` (public)\n11. `Escrow / Get Escrow Vault` as any party, `Payment / Payment History` as the student or an admin\n12. `Analytics / Student Overview`, `Expert Overview`, and as an admin `Escrow / Revenue Analytics` + `Analytics / Admin Overview`\n\nBecause tokens are per-role, re-run the matching login (`Login`, `Login as Expert`, `Login as Admin`) whenever the role changes - all three hit `POST /auth/login` and refill `{{accessToken}}`.\n\n### Multipart routes\n`POST /expert/verify`, `POST /expert/student-apply`, `POST /assignment/create` and `PATCH /assignment/:id/submit` are `multipart/form-data`. The JSON payload goes in a **single text field named `body`** (stringified JSON) - that is what `multipartDataValidationZod` parses. Files go under `documents` (max 5) or `attachment` (single). Leave `Content-Type` unset so Postman can add the boundary.\n\n### Pagination\nList endpoints take `searchTerm`, `page`, `limit`, `sortBy`, `sortOrder` and respond with:\n```json\n{ \"data\": [], \"meta\": { \"page\": 1, \"limit\": 10, \"total\": 0, \"totalPages\": 0 } }\n```\nQuery params are disabled by default - tick the ones you want.\n\n### Success shape\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"...\",\n  \"data\": {}\n}\n```\n\n### Error shape\n```json\n{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"name\": \"Error\",\n  \"message\": \"...\",\n  \"error\": {},\n  \"stack\": \"...\"\n}\n```\n`name`, `error` and `stack` are only populated when `NODE_ENV=development`.\n\n### Not covered here\n- `GET /assignment/dispute/:assignmentId` and `PATCH /assignment/dispute/:assignmentId/action` are registered in `assignment.route.ts` with `auth(Role.ADMIN)` **and no handler**, so a request to either passes the auth middleware and then hangs until the client times out. They are left out until a controller is attached.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -183,12 +183,10 @@
             "header": [],
             "url": {
               "raw": "{{serverUrl}}",
-              "host": [
-                "{{serverUrl}}"
-              ],
+              "host": ["{{serverUrl}}"],
               "path": []
             },
-            "description": "`GET /` -> `{ \"message\": \"Hello Assignment Bridge V1.0!\" }`. Public.",
+            "description": "`GET /` -> `{ \"message\": \"Hello AssignMate V1.0!\" }`. Public.",
             "auth": {
               "type": "noauth"
             }
@@ -200,7 +198,11 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test(\"greets with the AssignMate banner\", function () {",
+                  "  pm.expect(pm.response.json().message).to.eql(\"Hello AssignMate V1.0!\");",
+                  "});"
                 ]
               }
             }
@@ -219,13 +221,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/register",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "register"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
             },
             "description": "Creates the user in a pending state and emails a 6-digit OTP.\n\n`role` is optional and defaults to `STUDENT`. Allowed: `STUDENT` | `EXPERT` | `ADMIN`.\n\nPassword: 6-64 chars. Name: 3-255 chars.",
             "auth": {
@@ -250,13 +247,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/verify-register",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "verify-register"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify-register"]
             },
             "description": "Confirms the emailed OTP and activates the account.\n\nPaste the 6-digit code from your inbox into the `otp` collection variable first.",
             "auth": {
@@ -281,13 +273,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
             },
             "description": "Returns `{ accessToken, refreshToken, role }` **and** sets both as httpOnly cookies.\n\nThe test script stores the tokens in `{{accessToken}}` / `{{refreshToken}}`, which the collection-level bearer auth uses for every other request. Run this first.\n\nSwap the body to `{{expertEmail}}` / `{{adminEmail}}` to switch roles.",
             "auth": {
@@ -327,19 +314,108 @@
           ]
         },
         {
+          "name": "Login as Expert",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Same endpoint as `Login`, pre-filled with the expert credentials. Run it before `Bid / Make Bid` and `Assignment / Submit Assignment`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{expertEmail}}\",\n  \"password\": \"{{expertPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body.data && body.data.accessToken) {",
+                  "  pm.collectionVariables.set(\"accessToken\", body.data.accessToken);",
+                  "  pm.collectionVariables.set(\"refreshToken\", body.data.refreshToken);",
+                  "  pm.collectionVariables.set(\"currentRole\", body.data.role);",
+                  "  console.log(\"logged in as\", body.data.role);",
+                  "} else {",
+                  "  console.warn(\"no token in response - tokens not updated\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login as Admin",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Same endpoint as `Login`, pre-filled with the admin credentials. Run it before `Expert / Approve`, `Student / Get All Students`, `Escrow / Revenue Analytics` and `Analytics / Admin Overview`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body.data && body.data.accessToken) {",
+                  "  pm.collectionVariables.set(\"accessToken\", body.data.accessToken);",
+                  "  pm.collectionVariables.set(\"refreshToken\", body.data.refreshToken);",
+                  "  pm.collectionVariables.set(\"currentRole\", body.data.role);",
+                  "  console.log(\"logged in as\", body.data.role);",
+                  "} else {",
+                  "  console.warn(\"no token in response - tokens not updated\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Get Me",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/me",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "me"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
             },
             "description": "Current user with the `student` / `expert` profile joined in. Password omitted.\n\nAny authenticated role."
           },
@@ -367,13 +443,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/forget-password",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "forget-password"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "forget-password"]
             },
             "description": "Emails a password-reset OTP. Always returns 200.",
             "auth": {
@@ -398,13 +469,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/verify-forget-password-otp",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "verify-forget-password-otp"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify-forget-password-otp"]
             },
             "description": "Consumes the reset OTP and sets `newPassword` (6-64 chars).",
             "auth": {
@@ -429,13 +495,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/google-login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "google-login"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "google-login"]
             },
             "description": "Exchanges a Google ID token for app tokens; creates the user on first sight.\n\n> **Known issue:** `authController.googleLogin` passes the whole `req.body` object into `authService.googleLogin(googleIdToken: string)`, so `verifyIdToken` receives an object and rejects the token. This route needs a controller fix (`req.body.idToken`) before it works.",
             "auth": {
@@ -460,13 +521,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/refresh-token",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "refresh-token"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh-token"]
             },
             "description": "Mints a fresh access + refresh pair.\n\nReads the token from the **`refreshToken` cookie only** (`req.cookies.refreshToken`) - a JSON body is ignored. Run `Login` in the same Postman cookie jar first so the cookie is present for `{{serverUrl}}`.",
             "auth": {
@@ -503,13 +559,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/expert/register",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "expert",
-                "register"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["expert", "register"]
             },
             "description": "Starts expert signup and emails an OTP. Complete it with `Verify Expert`.",
             "auth": {
@@ -534,13 +585,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/expert/verify",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "expert",
-                "verify"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["expert", "verify"]
             },
             "description": "**multipart/form-data.** Confirms the OTP and creates the expert profile in `PENDING`.\n\n- `body` - stringified JSON (see the pre-filled field)\n- `documents` - up to 5 files (transcripts, ID, certificates)\n\nLeave `Content-Type` unset so Postman adds the multipart boundary.",
             "auth": {
@@ -567,19 +613,14 @@
           "response": []
         },
         {
-          "name": "Student Register as Expert",
+          "name": "Student Apply as Expert",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/expert/student-register",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "expert",
-                "student-register"
-              ]
+              "raw": "{{baseUrl}}/expert/student-apply",
+              "host": ["{{baseUrl}}"],
+              "path": ["expert", "student-apply"]
             },
             "description": "**multipart/form-data.** Lets an already-logged-in `STUDENT` open an expert profile - no OTP, the account is already verified.\n\nRequires a `STUDENT` access token.",
             "body": {
@@ -609,13 +650,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/expert/get-all?",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "expert",
-                "get-all"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["expert", "get-all"],
               "query": [
                 {
                   "key": "searchTerm",
@@ -680,13 +716,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/expert/approve",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "expert",
-                "approve"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["expert", "approve"]
             },
             "description": "**ADMIN only.** Sets the expert's verification status.\n\n`status` is upper-cased before validation, so `approve` works too.",
             "body": {
@@ -708,13 +739,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/expert/approve",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "expert",
-                "approve"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["expert", "approve"]
             },
             "description": "Same endpoint as `Approve Expert` with `status: REJECT`.\n\n`reason` is **required** when rejecting - the Zod refine returns 400 without it.",
             "body": {
@@ -742,13 +768,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/assignment/create",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "assignment",
-                "create"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["assignment", "create"]
             },
             "description": "**multipart/form-data. STUDENT only.** Creates an assignment in `OPEN`.\n\n- `body` - stringified JSON: `title` (3-200), `description` (10-2000), `budget` (> 0), `deadline` (ISO 8601, must be in the future)\n- `attachment` - a single optional file, uploaded to Cloudinary\n\nThe pre-request script stamps a deadline 14 days out so the request never goes stale. The test script stores the new id in `{{assignmentId}}`.",
             "body": {
@@ -792,13 +813,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/assignment/feed?",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "assignment",
-                "feed"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["assignment", "feed"],
               "query": [
                 {
                   "key": "searchTerm",
@@ -860,14 +876,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/assignment/{{assignmentId}}/get",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "assignment",
-                "{{assignmentId}}",
-                "get"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["assignment", "{{assignmentId}}", "get"]
             },
             "description": "Single assignment by id. Public - no auth, no ownership check. 404 if it does not exist.",
             "auth": {
@@ -883,13 +893,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/assignment/my-assignments?",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "assignment",
-                "my-assignments"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["assignment", "my-assignments"],
               "query": [
                 {
                   "key": "searchTerm",
@@ -940,14 +945,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/assignment/{{assignmentId}}/submit",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "assignment",
-                "{{assignmentId}}",
-                "submit"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["assignment", "{{assignmentId}}", "submit"]
             },
             "description": "**multipart/form-data. EXPERT only** (must be the assigned expert).\n\n- `status: IN_PROGRESS` - marks work started; no file needed\n- `status: SUBMITTED` - delivers the work; attach the deliverable as `attachment`\n\nOnly valid while the assignment is `ASSIGNED` or `IN_PROGRESS`.",
             "body": {
@@ -971,25 +970,67 @@
           "response": []
         },
         {
+          "name": "Submit Assignment - Mark In Progress",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assignment/{{assignmentId}}/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["assignment", "{{assignmentId}}", "submit"]
+            },
+            "description": "Same endpoint with `status: IN_PROGRESS`. Flips the assignment from `ASSIGNED` to `IN_PROGRESS` - no `attachment` required. `EXPERT` only.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "body",
+                  "value": "{\n  \"status\": \"IN_PROGRESS\"\n}",
+                  "type": "text",
+                  "description": "Stringified JSON payload. multipartDataValidationZod parses this field."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Assignment Action",
           "request": {
             "method": "PATCH",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/assignment/{{assignmentId}}/action",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "assignment",
-                "{{assignmentId}}",
-                "action"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["assignment", "{{assignmentId}}", "action"]
             },
             "description": "**STUDENT only** (must own the assignment). Drives the post-delivery state machine.\n\nAllowed only while the assignment is `SUBMITTED` or `UNDER_REVIEW`:\n\n- `UNDER_REVIEW` - student is reviewing the delivery\n- `COMPLETED` - releases escrow, credits the expert's `walletBalance`, marks the escrow `RELEASED_TO_EXPERT`\n- `DISPUTED` - **requires `reason`**, stored on `assignment.disputedReason`\n\nRe-sending the current status returns 409.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"status\": \"COMPLETED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assignment Action - Under Review",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assignment/{{assignmentId}}/action",
+              "host": ["{{baseUrl}}"],
+              "path": ["assignment", "{{assignmentId}}", "action"]
+            },
+            "description": "Same endpoint with `status: UNDER_REVIEW`. Parks a `SUBMITTED` assignment while the student checks the delivery - escrow stays `HELD`. `STUDENT` only.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"UNDER_REVIEW\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1006,14 +1047,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/assignment/{{assignmentId}}/action",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "assignment",
-                "{{assignmentId}}",
-                "action"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["assignment", "{{assignmentId}}", "action"]
             },
             "description": "Same endpoint with `status: DISPUTED`. `reason` is mandatory here - 400 without it.",
             "body": {
@@ -1041,13 +1076,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/bid/make-bid",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "bid",
-                "make-bid"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["bid", "make-bid"]
             },
             "description": "**EXPERT only.** Places a bid on an `OPEN` assignment.\n\n- `proposedAmount` > 0\n- `estimatedDelivery` ISO 8601, must be in the future\n- `coverNote` 10-1000 chars\n- `assignmentId` must be a valid UUID\n\nThe pre-request script fills `{{estimatedDelivery}}` with a date 7 days out.",
             "body": {
@@ -1081,14 +1111,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/bid/assignment/{{assignmentId}}?",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "bid",
-                "assignment",
-                "{{assignmentId}}"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["bid", "assignment", "{{assignmentId}}"],
               "query": [
                 {
                   "key": "page",
@@ -1139,13 +1163,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/bid/my-bids?",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "bid",
-                "my-bids"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["bid", "my-bids"],
               "query": [
                 {
                   "key": "page",
@@ -1196,14 +1215,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/bid/{{bidId}}/accept",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "bid",
-                "{{bidId}}",
-                "accept"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["bid", "{{bidId}}", "accept"]
             },
             "description": "**STUDENT only.** Accepts a `PENDING` bid on an `OPEN` assignment.\n\nIn one transaction: the bid becomes `ACCEPTED`, every sibling bid becomes `REJECTED`, and the assignment moves to `AWAITING_PAYMENT`. Pay via `Payment / Initiate Checkout` next."
           },
@@ -1216,14 +1229,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/bid/{{bidId}}/delete",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "bid",
-                "{{bidId}}",
-                "delete"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["bid", "{{bidId}}", "delete"]
             },
             "description": "**EXPERT only.** Withdraws their own bid. Only a `PENDING` bid can be withdrawn."
           },
@@ -1242,14 +1249,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/payment/initiate-checkout/{{assignmentId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "payment",
-                "initiate-checkout",
-                "{{assignmentId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "initiate-checkout", "{{assignmentId}}"]
             },
             "description": "**STUDENT only.** Creates a bKash tokenized checkout for one of their own assignments and returns the `bkashURL` to redirect the user to.\n\nA `Payment` row is created (or reused) with status `INITIATED`. Returns 400 if the assignment is already `PAID`.\n\nNo request body - the assignment id is in the path."
           },
@@ -1274,14 +1275,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/payment/callback/bkash?paymentID=TR0011xxxxxxxxxxxxx&status=success&signature=xxxxx",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "payment",
-                "callback",
-                "bkash"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "callback", "bkash"],
               "query": [
                 {
                   "key": "paymentID",
@@ -1317,13 +1312,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/payment/history?",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "payment",
-                "history"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "history"],
               "query": [
                 {
                   "key": "searchTerm",
@@ -1394,14 +1384,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/escrow/vault/{{assignmentId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "escrow",
-                "vault",
-                "{{assignmentId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["escrow", "vault", "{{assignmentId}}"]
             },
             "description": "The escrow record behind one assignment, with the commission split resolved into amounts.\n\n**ADMIN | STUDENT | EXPERT**, but scoped:\n\n- `ADMIN` - any vault, and the response includes the owning `student`\n- `STUDENT` - only assignments they posted\n- `EXPERT` - only assignments they were assigned to\n\nAnyone else on the record gets 403; a missing escrow is 404 (escrow rows are created by the bKash callback, so an unpaid assignment has none).\n\n`breakdown` turns the stored **percentages** (`platformCommission` 15, `expertEarnings` 85) into `platformRevenue` / `expertPayout` using the same rounding as the payout in `Assignment Action`."
           },
@@ -1433,14 +1417,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/escrow/admin/revenue-analytics?",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "escrow",
-                "admin",
-                "revenue-analytics"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["escrow", "admin", "revenue-analytics"],
               "query": [
                 {
                   "key": "from",
@@ -1492,13 +1470,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/review/write",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "review",
-                "write"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["review", "write"]
             },
             "description": "**STUDENT only.** One review per assignment.\n\nGuards, in order: the assignment must be **theirs** (404), must be `COMPLETED` (400), must have an assigned expert (400), and must not already be reviewed (409).\n\n- `rating` - integer 1-5\n- `comment` - optional, 3-1000 chars\n\nNote `Review.studentId` stores the **User** id, while `expertId` is the Expert profile id.",
             "body": {
@@ -1534,14 +1507,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/review/expert/{{expertId}}?",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "review",
-                "expert",
-                "{{expertId}}"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["review", "expert", "{{expertId}}"],
               "query": [
                 {
                   "key": "rating",
@@ -1589,13 +1556,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/review/{{assignmentId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "review",
-                "{{assignmentId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["review", "{{assignmentId}}"]
             },
             "description": "Public. The single review attached to an assignment (`assignmentId` is unique on `Review`). 404 when the assignment has not been reviewed.\n\nDeclared after `/expert/:expertId` in the router so `expert` is never read as an assignment id.",
             "auth": {
@@ -1617,13 +1579,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/student/me",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "student",
-                "me"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "me"]
             },
             "description": "**STUDENT only.** Own profile plus a `stats` block: assignments by status, pending bids received, spending (`totalPaid`, `pendingPayments`, `inEscrow`, `refunded`) and reviews written.\n\nRicher than `Auth / Get Me`, which returns the raw profile with no aggregates."
           },
@@ -1650,13 +1607,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/student/me",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "student",
-                "me"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "me"]
             },
             "description": "**STUDENT only.** Every field is optional, but you must send **at least one** or the request 400s.\n\n- `name` (3-255) and `phoneNo` (6-20) update the `users` row\n- `institution` (2-255) and `academicLevel` (2-100) update the `students` row\n\nBoth writes run in one transaction. This is the **only** way to populate `institution` and `academicLevel` - registration never collects them.\n\nStrings are trimmed before the length check, so a whitespace-only value is rejected.",
             "body": {
@@ -1678,13 +1630,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/student/get-all?",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "student",
-                "get-all"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "get-all"],
               "query": [
                 {
                   "key": "searchTerm",
@@ -1743,13 +1690,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/student/{{studentId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "student",
-                "{{studentId}}"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "{{studentId}}"]
             },
             "description": "**ADMIN only.** One student with the same `stats` block as `Get My Profile`, plus their 5 most recent assignments. 404 on an unknown id.\n\nDeclared last in the router so `me` and `get-all` are never read as a student id."
           },
@@ -1768,14 +1710,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/analytics/admin/overview?",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "analytics",
-                "admin",
-                "overview"
-              ],
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "admin", "overview"],
               "query": [
                 {
                   "key": "from",
@@ -1821,14 +1757,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/analytics/student/overview",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "analytics",
-                "student",
-                "overview"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "student", "overview"]
             },
             "description": "**STUDENT only.** Their own numbers: assignments `byStatus` (plus `completed` and `awaitingPayment`), bids received `byStatus`, spending (`totalPaid`, `pendingPayments`, `inEscrow`, `refunded`) and `reviewsWritten`.\n\nSame figures as the `stats` block on `Student / Get My Profile`, without the profile fields."
           },
@@ -1841,14 +1771,8 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/analytics/expert/overview",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "analytics",
-                "expert",
-                "overview"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["analytics", "expert", "overview"]
             },
             "description": "**EXPERT only.** Their own numbers:\n\n- `bids` - `byStatus` plus `winRate`\n- `assignments` - the ones they won, `byStatus`\n- `earnings` - `walletBalance` (the credited figure), `released` (85% share of `RELEASED_TO_EXPERT` escrows) and `pendingInEscrow` (their share of escrows still `HELD`)\n- `reputation` - review count and average rating\n\n`released` is computed from escrow rows and should track `walletBalance`; a drift between them means a payout did not land."
           },

@@ -9,7 +9,7 @@ bid on them, and the money sits in escrow until the work is actually delivered.
 
 ```bash
 curl https://api.assignmate.withakash.dev/
-# {"message":"Hello Assignment Bridge V1.0!"}
+# {"message":"Hello AssignMate V1.0!"}
 ```
 
 ---
@@ -175,13 +175,13 @@ A Postman collection with an environment file lives in [`postman/`](postman/).
 
 ### Experts — `/expert`
 
-| Method | Path                | Access                                        |
-| ------ | ------------------- | --------------------------------------------- |
-| `POST` | `/register`         | public                                        |
-| `POST` | `/verify`           | public · multipart, up to 5 documents         |
-| `POST` | `/student-apply`    | student · multipart — apply to also become an expert |
-| `POST` | `/approve`          | admin                                         |
-| `GET`  | `/get-all`          | admin                                         |
+| Method | Path             | Access                                               |
+| ------ | ---------------- | ---------------------------------------------------- |
+| `POST` | `/register`      | public                                               |
+| `POST` | `/verify`        | public · multipart, up to 5 documents                |
+| `POST` | `/student-apply` | student · multipart — apply to also become an expert |
+| `POST` | `/approve`       | admin                                                |
+| `GET`  | `/get-all`       | admin                                                |
 
 ### Students — `/student`
 
