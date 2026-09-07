@@ -133,8 +133,11 @@ const getOpenAssignments = async (query: IQuery) => {
 };
 
 const getAssignmentById = async (assignmentId: string) => {
+  // This route is public, so the deliverable and the dispute notes stay out of
+  // it. Owners get the full row from /my-assignments.
   const assignment = await prisma.assignment.findUnique({
     where: { id: assignmentId },
+    omit: { submissionUrl: true, disputedReason: true },
   });
   if (!assignment) {
     throw new AppError(httpStatus.NOT_FOUND, "Assignment not found");
@@ -442,12 +445,25 @@ const assignmentAction = async (
     let expertEarnings = "0.00";
 
     const transaction = await prisma.$transaction(async (tx) => {
-      const updatedAssignment = await tx.assignment.update({
-        where: { id: assignmentId },
+      const completed = await tx.assignment.updateMany({
+        where: {
+          id: assignmentId,
+          status: {
+            in: [AssignmentStatus.SUBMITTED, AssignmentStatus.UNDER_REVIEW],
+          },
+        },
         data: {
           status: AssignmentStatus.COMPLETED,
         },
       });
+
+      if (completed.count === 0) {
+        throw new AppError(
+          httpStatus.CONFLICT,
+          "This assignment has already been completed",
+        );
+      }
+
       const getEscrow = await tx.escrow.findUnique({
         where: { assignmentId: assignmentId },
       });
@@ -461,6 +477,21 @@ const assignmentAction = async (
         100
       ).toFixed(2);
 
+      const released = await tx.escrow.updateMany({
+        where: { id: getEscrow.id, status: EscrowStatus.HELD },
+        data: {
+          status: EscrowStatus.RELEASED_TO_EXPERT,
+          disbursedAt: new Date(),
+        },
+      });
+
+      if (released.count === 0) {
+        throw new AppError(
+          httpStatus.CONFLICT,
+          "This escrow has already been settled",
+        );
+      }
+
       await tx.expert.update({
         where: { id: assignment.assignedExpertId as string },
         data: {
@@ -470,15 +501,7 @@ const assignmentAction = async (
         },
       });
 
-      await tx.escrow.update({
-        where: { id: getEscrow.id },
-        data: {
-          status: EscrowStatus.RELEASED_TO_EXPERT,
-          disbursedAt: new Date(),
-        },
-      });
-
-      return updatedAssignment;
+      return tx.assignment.findUnique({ where: { id: assignmentId } });
     });
 
     if (assignment.assignedExpert) {
