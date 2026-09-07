@@ -18,4 +18,5 @@ router.get(
   auth(Role.ADMIN, Role.STUDENT),
   paymentController.paymentHistory,
 );
+
 export const PaymentRoute = router;

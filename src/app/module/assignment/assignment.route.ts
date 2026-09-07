@@ -41,4 +41,7 @@ router.patch(
   assignmentController.assignmentAction,
 );
 
+router.get("/dispute/:assignmentId", auth(Role.ADMIN));
+router.patch("/dispute/:assignmentId/action", auth(Role.ADMIN));
+
 export const AssignmentRoutes = router;

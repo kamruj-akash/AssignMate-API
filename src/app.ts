@@ -10,8 +10,10 @@ import { notFound } from "./app/middleware/notFound";
 import { AssignmentRoutes } from "./app/module/assignment/assignment.route";
 import { AuthRoute } from "./app/module/auth/auth.route";
 import { BidRoutes } from "./app/module/bid/bid.route";
+import { EscrowRoute } from "./app/module/escrow/escrow.route";
 import { ExpertRoute } from "./app/module/expert/expert.route";
 import { PaymentRoute } from "./app/module/payment/payment.route";
+import { ReviewRoute } from "./app/module/review/review.route";
 
 const app: Application = express();
 
@@ -30,6 +32,8 @@ app.use("/api/v1/expert", ExpertRoute);
 app.use("/api/v1/assignment", AssignmentRoutes);
 app.use("/api/v1/bid", BidRoutes);
 app.use("/api/v1/payment", PaymentRoute);
+app.use("/api/v1/escrow", EscrowRoute);
+app.use("/api/v1/review", ReviewRoute);
 
 // Health Check
 app.get("/", (req: Request, res: Response) => {
