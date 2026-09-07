@@ -15,8 +15,10 @@ import cloudinary from "../../lib/cloudinary";
 import { prisma } from "../../lib/prisma";
 import type { RequestUser } from "../../middleware/authCheck";
 import { AppError } from "../../utils/AppError";
-import type { IAssignmentActionPayload } from "./assignment.interface";
-import type { ICreateAssignment } from "./export interface IAssignmentActionPayload {   status: AssignmentStatus;   reason?: string; }";
+import type {
+  IAssignmentActionPayload,
+  ICreateAssignment,
+} from "./assignment.interface";
 
 const createAssignment = async (
   payload: ICreateAssignment,
