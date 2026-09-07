@@ -4,15 +4,18 @@ import { z } from "zod";
 import { AppError } from "../utils/AppError";
 import { catchAsync } from "../utils/catchAsync";
 
+const formatIssues = (error: z.ZodError) =>
+  error.issues
+    .map((issue) => `${issue.path.join(".") || "body"}: ${issue.message}`)
+    .join("; ");
+
 export const dataValidationZod = (zodSchema: z.ZodObject) => {
   return catchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const payload = req.body ?? {};
     // console.log("data in ZOD is", payload);
     const result = zodSchema.safeParse(payload);
     if (!result.success) {
-      console.log(result.error);
-      console.log(result.error.issues);
-      throw new AppError(httpStatus.BAD_REQUEST, result.error.message);
+      throw new AppError(httpStatus.BAD_REQUEST, formatIssues(result.error));
     }
     req.body = result.data;
     next();
@@ -42,7 +45,7 @@ export const multipartDataValidationZod = (zodSchema: z.ZodObject) => {
 
     const result = zodSchema.safeParse(parsedPayload);
     if (!result.success) {
-      throw new AppError(httpStatus.BAD_REQUEST, result.error.message);
+      throw new AppError(httpStatus.BAD_REQUEST, formatIssues(result.error));
     }
     req.body = result.data;
     next();
@@ -53,7 +56,7 @@ export const queryValidationZod = (zodSchema: z.ZodObject) => {
   return catchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const result = zodSchema.safeParse(req.query ?? {});
     if (!result.success) {
-      throw new AppError(httpStatus.BAD_REQUEST, result.error.message);
+      throw new AppError(httpStatus.BAD_REQUEST, formatIssues(result.error));
     }
     Object.defineProperty(req, "query", {
       value: result.data,

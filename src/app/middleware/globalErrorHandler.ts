@@ -10,7 +10,9 @@ export const globalErrorHandler = async (
   res: Response,
   _next: NextFunction,
 ) => {
-  if (envConfig.node_env === "development") {
+  const isProduction = envConfig.node_env === "production";
+
+  if (!isProduction) {
     console.log("Error from Global Error Handler", err);
   }
 
@@ -52,18 +54,15 @@ export const globalErrorHandler = async (
     errorMessage = err.message;
   }
 
-  res.status(statusCode || httpStatus.INTERNAL_SERVER_ERROR).json({
+  const exposeMessage =
+    !isProduction || statusCode < httpStatus.INTERNAL_SERVER_ERROR;
+
+  res.status(statusCode).json({
     success: false,
-    statusCode: statusCode || httpStatus.INTERNAL_SERVER_ERROR,
-    name:
-      envConfig.node_env === "development"
-        ? errorName
-        : "Internal Server Error",
-    message:
-      envConfig.node_env === "development"
-        ? errorMessage
-        : "Internal Server Error",
-    error: envConfig.node_env === "development" ? err : undefined,
-    stack: envConfig.node_env === "development" ? err.stack : undefined,
+    statusCode,
+    name: exposeMessage ? errorName : "Internal Server Error",
+    message: exposeMessage ? errorMessage : "Internal Server Error",
+    error: isProduction ? undefined : err,
+    stack: isProduction ? undefined : err.stack,
   });
 };

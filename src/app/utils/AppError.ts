@@ -2,8 +2,9 @@ export class AppError extends Error {
   public statusCode: number;
 
   constructor(statusCode: number, message: string, stack = "") {
-    super(message); // throw new Error(message)
+    super(message);
 
+    this.name = "AppError";
     this.statusCode = statusCode;
 
     if (stack) {

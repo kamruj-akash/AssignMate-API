@@ -44,7 +44,7 @@ app.get("/", (req: Request, res: Response) => {
   res.status(200).json({ message: "Hello Assignment Bridge V1.0!" });
 });
 
-app.use(globalErrorHandler);
 app.use(notFound);
+app.use(globalErrorHandler);
 
 export default app;
