@@ -316,32 +316,34 @@ const paymentHistory = async (query: IQuery, user: RequestUser) => {
     });
   }
 
-  const payments = await prisma.payment.findMany({
-    where: { AND: andConditions },
-    include: {
-      assignment: {
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          budget: true,
-          deadline: true,
-          student: {
-            select: {
-              id: true,
-              institution: true,
-              user: { select: { id: true, name: true, email: true } },
+  const [payments, total] = await Promise.all([
+    prisma.payment.findMany({
+      where: { AND: andConditions },
+      include: {
+        assignment: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            budget: true,
+            deadline: true,
+            student: {
+              select: {
+                id: true,
+                institution: true,
+                user: { select: { id: true, name: true, email: true } },
+              },
             },
           },
         },
       },
-    },
-    skip: (page - 1) * limit,
-    take: limit,
-    orderBy: { [sortBy]: sortOrder },
-  });
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+    }),
+    prisma.payment.count({ where: { AND: andConditions } }),
+  ]);
 
-  const total = await prisma.payment.count({ where: { AND: andConditions } });
   const totalPages = Math.ceil(total / limit);
 
   return {

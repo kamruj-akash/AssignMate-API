@@ -95,22 +95,24 @@ const getExpertReviews = async (expertId: string, query: IQuery) => {
     throw new AppError(httpStatus.NOT_FOUND, "Expert not found");
   }
 
-  const reviews = await prisma.review.findMany({
-    where: { expertId, rating },
-    select: {
-      id: true,
-      rating: true,
-      comment: true,
-      createdAt: true,
-      assignment: { select: { id: true, title: true } },
-      student: { select: { id: true, name: true } },
-    },
-    skip: (page - 1) * limit,
-    take: limit,
-    orderBy: { [sortBy]: sortOrder },
-  });
+  const [reviews, total] = await Promise.all([
+    prisma.review.findMany({
+      where: { expertId, rating },
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        createdAt: true,
+        assignment: { select: { id: true, title: true } },
+        student: { select: { id: true, name: true } },
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+    }),
+    prisma.review.count({ where: { expertId, rating } }),
+  ]);
 
-  const total = await prisma.review.count({ where: { expertId, rating } });
   const totalPages = Math.ceil(total / limit);
 
   const allReviews = await prisma.review.findMany({

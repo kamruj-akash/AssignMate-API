@@ -8,7 +8,10 @@ WORKDIR /app
 # Dependencies first: a code-only change reuses this layer instead of
 # reinstalling on every deploy.
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile --production
+# --omit=peer matters as much as --production here: @prisma/client peers on the
+# prisma CLI, and Bun installs peers by default, which dragged the CLI, its
+# engines and Prisma Studio into the runtime image (~290MB of tooling).
+RUN bun install --frozen-lockfile --production --omit=peer
 
 # The Prisma client is generated into prisma/src/generated and committed, and
 # the pg driver adapter needs no query-engine binary, so there is no generate

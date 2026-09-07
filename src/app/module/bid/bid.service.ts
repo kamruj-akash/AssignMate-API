@@ -91,45 +91,47 @@ const getBidByAssignmentId = async (
   if (!existAssignment) {
     throw new AppError(httpStatus.NOT_FOUND, "Assignment not found");
   }
-  const bids = await prisma.assignmentBid.findMany({
-    where: {
-      assignmentId,
-      status: { in: [BidStatus.PENDING, BidStatus.ACCEPTED] },
-    },
-    select: {
-      id: true,
-      proposedAmount: true,
-      estimatedDelivery: true,
-      coverNote: true,
-      status: true,
-      expert: {
-        select: {
-          id: true,
-          userId: true,
-          university: true,
-          department: true,
-          bio: true,
-          user: {
-            select: {
-              name: true,
+  const [bids, total] = await Promise.all([
+    prisma.assignmentBid.findMany({
+      where: {
+        assignmentId,
+        status: { in: [BidStatus.PENDING, BidStatus.ACCEPTED] },
+      },
+      select: {
+        id: true,
+        proposedAmount: true,
+        estimatedDelivery: true,
+        coverNote: true,
+        status: true,
+        expert: {
+          select: {
+            id: true,
+            userId: true,
+            university: true,
+            department: true,
+            bio: true,
+            user: {
+              select: {
+                name: true,
+              },
             },
           },
         },
       },
-    },
-    skip: (page - 1) * limit,
-    take: limit,
-    orderBy: { [sortBy]: sortOrder },
-  });
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+    }),
 
-  const total = await prisma.assignmentBid.count({
-    where: {
-      assignmentId,
-      status: { in: [BidStatus.PENDING, BidStatus.ACCEPTED] },
-    },
-    skip: (page - 1) * limit,
-    take: limit,
-  });
+    prisma.assignmentBid.count({
+      where: {
+        assignmentId,
+        status: { in: [BidStatus.PENDING, BidStatus.ACCEPTED] },
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+  ]);
   const totalPages = Math.ceil(total / limit);
 
   return {
@@ -159,25 +161,28 @@ const getMyBids = async (user: RequestUser, query: IQuery) => {
       "Only experts can view their bids",
     );
   }
-  const bids = await prisma.assignmentBid.findMany({
-    where: { expertId: existExpert.expert.id },
-    include: {
-      assignment: {
-        select: {
-          title: true,
-          description: true,
-          status: true,
-          createdAt: true,
+
+  const [bids, total] = await Promise.all([
+    await prisma.assignmentBid.findMany({
+      where: { expertId: existExpert.expert.id },
+      include: {
+        assignment: {
+          select: {
+            title: true,
+            description: true,
+            status: true,
+            createdAt: true,
+          },
         },
       },
-    },
-    orderBy: { [sortBy]: sortOrder },
-    skip: (page - 1) * limit,
-    take: limit,
-  });
-  const total = await prisma.assignmentBid.count({
-    where: { expertId: existExpert.expert.id },
-  });
+      orderBy: { [sortBy]: sortOrder },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.assignmentBid.count({
+      where: { expertId: existExpert.expert.id },
+    }),
+  ]);
   const totalPages = Math.ceil(total / limit);
 
   return {

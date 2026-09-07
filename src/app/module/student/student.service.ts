@@ -199,32 +199,34 @@ const getAllStudents = async (query: IQuery) => {
     });
   }
 
-  const students = await prisma.student.findMany({
-    where: { AND: andConditions },
-    select: {
-      id: true,
-      institution: true,
-      academicLevel: true,
-      createdAt: true,
-      updatedAt: true,
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phoneNo: true,
-          status: true,
-          emailVerified: true,
+  const [students, total] = await Promise.all([
+    prisma.student.findMany({
+      where: { AND: andConditions },
+      select: {
+        id: true,
+        institution: true,
+        academicLevel: true,
+        createdAt: true,
+        updatedAt: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phoneNo: true,
+            status: true,
+            emailVerified: true,
+          },
         },
+        _count: { select: { assignmentTasks: true } },
       },
-      _count: { select: { assignmentTasks: true } },
-    },
-    skip: (page - 1) * limit,
-    take: limit,
-    orderBy: { [sortBy]: sortOrder },
-  });
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+    }),
+    prisma.student.count({ where: { AND: andConditions } }),
+  ]);
 
-  const total = await prisma.student.count({ where: { AND: andConditions } });
   const totalPages = Math.ceil(total / limit);
 
   return {

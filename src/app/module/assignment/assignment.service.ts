@@ -102,22 +102,23 @@ const getOpenAssignments = async (query: IQuery) => {
     });
   }
 
-  const assignments = await prisma.assignment.findMany({
-    where: {
-      AND: andConditions,
-    },
-    skip: (page - 1) * limit,
-    take: limit,
-    orderBy: {
-      [sortBy]: sortOrder,
-    },
-  });
-  const total = await prisma.assignment.count({
-    where: {
-      AND: andConditions,
-    },
-  });
-
+  const [assignments, total] = await Promise.all([
+    prisma.assignment.findMany({
+      where: {
+        AND: andConditions,
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
+    }),
+    prisma.assignment.count({
+      where: {
+        AND: andConditions,
+      },
+    }),
+  ]);
   const totalPages = Math.ceil(total / limit);
 
   return {
@@ -230,22 +231,24 @@ const getMyAssignments = async (reqUser: RequestUser, query: IQuery) => {
     });
   }
 
-  const assignments = await prisma.assignment.findMany({
-    where: {
-      AND: andConditions,
-    },
-    include,
-    skip: (page - 1) * limit,
-    take: limit,
-    orderBy: {
-      [sortBy]: sortOrder,
-    },
-  });
-  const total = await prisma.assignment.count({
-    where: {
-      AND: andConditions,
-    },
-  });
+  const [assignments, total] = await Promise.all([
+    prisma.assignment.findMany({
+      where: {
+        AND: andConditions,
+      },
+      include,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
+    }),
+    prisma.assignment.count({
+      where: {
+        AND: andConditions,
+      },
+    }),
+  ]);
 
   const totalPages = Math.ceil(total / limit);
   return {
