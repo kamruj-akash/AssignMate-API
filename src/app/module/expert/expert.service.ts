@@ -203,7 +203,8 @@ const studentRegisterExpert = async (
   ) {
     throw new AppError(
       httpStatus.CONFLICT,
-      existingApplication.verificationStatus === ExpertVerificationStatus.PENDING
+      existingApplication.verificationStatus ===
+        ExpertVerificationStatus.PENDING
         ? "You have already applied, please wait for approval"
         : "You are already registered as an expert",
     );
@@ -327,6 +328,9 @@ const approveExpert = async (payload: IApproveExpert, user: RequestUser) => {
       "Expert is already verified or rejected",
     );
   }
+  const isStudent = await prisma.student.findUnique({
+    where: { userId: isExpertExist.userId },
+  });
 
   if (status === ExpertVerificationStatus.REJECT && !reason) {
     throw new AppError(
@@ -359,11 +363,11 @@ const approveExpert = async (payload: IApproveExpert, user: RequestUser) => {
       where: { id: isExpertExist.userId },
       data: { role: Role.EXPERT },
     });
-
-    await tx.student.delete({
-      where: { userId: isExpertExist.userId },
-    });
-
+    if (isStudent) {
+      await tx.student.delete({
+        where: { userId: isExpertExist.userId },
+      });
+    }
     return expert;
   });
 
