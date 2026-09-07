@@ -5,6 +5,7 @@ import type {
   IAssignmentSubmittedEmail,
   IBidAcceptedEmail,
   IEmailContent,
+  IExpertApplicationEmail,
   IExpertDecisionEmail,
   IOtpEmail,
   IPaymentReceiptEmail,
@@ -157,6 +158,35 @@ const welcome = (payload: IWelcomeEmail): IEmailContent => {
     text: `Welcome aboard, ${payload.name}!\n\nYour email is verified and your ${brandName} account is ready to use.\n\n${nextStep}${appUrl ? `\n\nDashboard: ${appUrl}` : ""}\n\n— ${brandName}`,
   };
 };
+
+const expertApplicationReceived = (
+  payload: IExpertApplicationEmail,
+): IEmailContent => ({
+  subject: `We received your ${brandName} expert application`,
+  html: baseLayout(
+    "Application received",
+    `
+    <h1 style="${style.heading}">Your application is in review</h1>
+    <p style="${style.text}">
+      Hi ${payload.name}, thanks for applying to become an expert on ${brandName}.
+      Your student account stays exactly as it is while we review.
+    </p>
+    <div style="${style.panel}">
+      ${detailRow("Documents received", String(payload.documentCount))}
+      ${detailRow("Status", "Pending review")}
+    </div>
+    <p style="${style.text}">
+      Our team checks every document by hand, so this can take a little time. We
+      will email you as soon as there is a decision — you do not need to apply
+      again in the meantime.
+    </p>
+    <p style="${style.muted}">
+      Questions about your application? Just reply to this email or write to
+      ${supportEmail}.
+    </p>`,
+  ),
+  text: `Hi ${payload.name},\n\nThanks for applying to become an expert on ${brandName}. We received ${payload.documentCount} document(s) and your application is pending review.\n\nOur team checks every document by hand, so this can take a little time. We will email you as soon as there is a decision — you do not need to apply again in the meantime.\n\nQuestions? Reply to this email or write to ${supportEmail}.\n\n— ${brandName}`,
+});
 
 const expertApproved = (payload: IExpertDecisionEmail): IEmailContent => ({
   subject: `Your ${brandName} expert application is approved`,
@@ -325,6 +355,7 @@ export const emailTemplate = {
   expertRegistrationOtp,
   passwordResetOtp,
   welcome,
+  expertApplicationReceived,
   expertApproved,
   expertRejected,
   bidAccepted,

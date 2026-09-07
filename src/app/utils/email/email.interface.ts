@@ -23,6 +23,11 @@ export interface IWelcomeEmail {
   role: "STUDENT" | "EXPERT";
 }
 
+export interface IExpertApplicationEmail {
+  name: string;
+  documentCount: number;
+}
+
 export interface IExpertDecisionEmail {
   name: string;
   reason?: string;

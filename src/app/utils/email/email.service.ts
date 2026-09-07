@@ -8,6 +8,7 @@ import type {
   IAssignmentSubmittedEmail,
   IBidAcceptedEmail,
   IEmailContent,
+  IExpertApplicationEmail,
   IExpertDecisionEmail,
   IOtpEmail,
   IPaymentReceiptEmail,
@@ -68,6 +69,13 @@ const sendPasswordResetOtp = (to: string, payload: IOtpEmail) =>
 const sendWelcome = (to: string, payload: IWelcomeEmail) =>
   notify(to, emailTemplate.welcome(payload));
 
+// notify(), not send(): the application row is already committed by the time
+// this runs, so a mail outage must not fail the request the student just made.
+const sendExpertApplicationReceived = (
+  to: string,
+  payload: IExpertApplicationEmail,
+) => notify(to, emailTemplate.expertApplicationReceived(payload));
+
 // expert =>
 
 const sendExpertApproved = (to: string, payload: IExpertDecisionEmail) =>
@@ -105,6 +113,7 @@ export const emailService = {
   sendExpertRegistrationOtp,
   sendPasswordResetOtp,
   sendWelcome,
+  sendExpertApplicationReceived,
   sendExpertApproved,
   sendExpertRejected,
   sendBidAccepted,

@@ -179,20 +179,36 @@ const studentRegisterExpert = async (
 ) => {
   const { university, department, ratePerAssignment, bio } = payload;
   const isUserExist = await prisma.user.findUnique({
-    where: { id: user.userId, role: Role.STUDENT },
+    where: { id: user.userId },
+    include: { expert: true },
   });
-  if (isUserExist && isUserExist?.role !== Role.STUDENT) {
+
+  if (!isUserExist) {
+    throw new AppError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  if (isUserExist.role !== Role.STUDENT) {
     throw new AppError(
       httpStatus.FORBIDDEN,
       "You are not authorized to register as an expert",
     );
   }
-  if (isUserExist?.role === Role.EXPERT) {
+
+  // `Expert.userId` is unique, so a second application used to die on a raw
+  // P2002 ("Duplicate Key Error") with nothing to tell the student why.
+  const existingApplication = isUserExist.expert;
+  if (
+    existingApplication &&
+    existingApplication.verificationStatus !== ExpertVerificationStatus.REJECT
+  ) {
     throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "You are already registered as an expert",
+      httpStatus.CONFLICT,
+      existingApplication.verificationStatus === ExpertVerificationStatus.PENDING
+        ? "You have already applied, please wait for approval"
+        : "You are already registered as an expert",
     );
   }
+
   if (!documents || documents.length === 0) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
@@ -200,6 +216,8 @@ const studentRegisterExpert = async (
     );
   }
 
+  // Upload only once every guard has passed. Uploading first meant a rejected
+  // application still left its files behind in Cloudinary, referenced by nothing.
   const uploadedDocuments = await Promise.all(
     documents.map((doc) => {
       return new Promise<UploadApiResponse>((resolve, reject) => {
@@ -211,9 +229,11 @@ const studentRegisterExpert = async (
                 return reject(error);
               }
               if (!result) {
-                throw new AppError(
-                  httpStatus.INTERNAL_SERVER_ERROR,
-                  "Failed to upload document",
+                return reject(
+                  new AppError(
+                    httpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to upload document",
+                  ),
                 );
               }
               resolve(result);
@@ -224,27 +244,45 @@ const studentRegisterExpert = async (
     }),
   );
 
-  if (uploadedDocuments.length === 0) {
-    throw new AppError(
-      httpStatus.BAD_REQUEST,
-      "At least one document is required for verification",
-    );
-  }
-  const registeredExpert = await prisma.expert.create({
-    data: {
-      userId: user.userId,
-      university,
-      department,
-      ratePerAssignment,
-      bio: bio || null,
-      isVerified: false,
-      verificationStatus: ExpertVerificationStatus.PENDING,
-      documents: uploadedDocuments.map((doc) => ({
-        url: doc.secure_url,
-        publicId: doc.public_id,
-      })),
-    },
+  const documentPayload = uploadedDocuments.map((doc) => ({
+    url: doc.secure_url,
+    publicId: doc.public_id,
+  }));
+
+  // The rejection email invites the student to apply again with new documents,
+  // so reuse their row rather than colliding with the unique userId.
+  const registeredExpert = existingApplication
+    ? await prisma.expert.update({
+        where: { id: existingApplication.id },
+        data: {
+          university,
+          department,
+          ratePerAssignment,
+          bio: bio || null,
+          isVerified: false,
+          verificationStatus: ExpertVerificationStatus.PENDING,
+          rejectionReason: null,
+          documents: documentPayload,
+        },
+      })
+    : await prisma.expert.create({
+        data: {
+          userId: user.userId,
+          university,
+          department,
+          ratePerAssignment,
+          bio: bio || null,
+          isVerified: false,
+          verificationStatus: ExpertVerificationStatus.PENDING,
+          documents: documentPayload,
+        },
+      });
+
+  await emailService.sendExpertApplicationReceived(isUserExist.email, {
+    name: isUserExist.name,
+    documentCount: documentPayload.length,
   });
+
   return registeredExpert;
 };
 

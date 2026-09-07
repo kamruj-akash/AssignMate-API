@@ -1,6 +1,6 @@
 # AssignMate API
 
-*Every assignment needs a mate.*
+_Every assignment needs a mate._
 
 A marketplace backend where university students post assignments, verified experts
 bid on them, and the money sits in escrow until the work is actually delivered.
@@ -21,7 +21,7 @@ hopes the work arrives; an expert delivers and hopes payment follows. Someone
 always carries the risk.
 
 AssignMate puts a state machine and an escrow account between the two parties. The
-student pays once they accept a bid, but the money is *held* rather than forwarded —
+student pays once they accept a bid, but the money is _held_ rather than forwarded —
 the expert can see the job is funded before starting, and the student can see the
 work before the money moves. Neither side has to trust the other, only the flow.
 
@@ -63,12 +63,12 @@ An `Escrow` row is created when payment clears, and it stores the split as
 percentages rather than amounts — so changing the platform's cut later does not
 require rewriting historical rows.
 
-| Field | Default | Meaning |
-|---|---|---|
-| `totalAmount` | — | What the student paid, `Decimal(12,2)` |
-| `platformCommission` | `15` | Platform's share, in percent |
-| `expertEarnings` | `85` | Expert's share, in percent |
-| `status` | `HELD` | `HELD` → `RELEASED_TO_EXPERT` \| `REFUNDED_TO_STUDENT` |
+| Field                | Default | Meaning                                                |
+| -------------------- | ------- | ------------------------------------------------------ |
+| `totalAmount`        | —       | What the student paid, `Decimal(12,2)`                 |
+| `platformCommission` | `15`    | Platform's share, in percent                           |
+| `expertEarnings`     | `85`    | Expert's share, in percent                             |
+| `status`             | `HELD`  | `HELD` → `RELEASED_TO_EXPERT` \| `REFUNDED_TO_STUDENT` |
 
 Payouts are computed at release time, not at capture time
 ([`escrow.service.ts`](src/app/module/escrow/escrow.service.ts)). Money is stored as
@@ -95,17 +95,17 @@ it — see [Known gaps](#known-gaps).
 
 ## Tech stack
 
-| | | Why |
-|---|---|---|
-| **Bun** | 1.4 | Runs TypeScript directly — no build step, no `dist/`, no source maps to keep in sync |
-| **Express** | 5 | Native async error propagation, so `catchAsync` stays thin |
-| **PostgreSQL** | 17 | Relational data with real money in it wants real constraints |
-| **Prisma** | 7 | Driver adapter (`@prisma/adapter-pg`), no query-engine binary to ship |
-| **Redis** | — | OTPs and the cached bKash grant token; both are TTL-shaped, not table-shaped |
-| **Zod** | 4 | Request validation at the boundary; parsed output replaces `req.body` |
-| **Cloudinary** | — | Attachments and verification docs, uploaded straight from memory |
-| **Resend** | — | Transactional email |
-| **Docker** | — | Deployment image, pinned to the same Bun that wrote `bun.lock` |
+|                |     | Why                                                                                  |
+| -------------- | --- | ------------------------------------------------------------------------------------ |
+| **Bun**        | 1.4 | Runs TypeScript directly — no build step, no `dist/`, no source maps to keep in sync |
+| **Express**    | 5   | Native async error propagation, so `catchAsync` stays thin                           |
+| **PostgreSQL** | 17  | Relational data with real money in it wants real constraints                         |
+| **Prisma**     | 7   | Driver adapter (`@prisma/adapter-pg`), no query-engine binary to ship                |
+| **Redis**      | —   | OTPs and the cached bKash grant token; both are TTL-shaped, not table-shaped         |
+| **Zod**        | 4   | Request validation at the boundary; parsed output replaces `req.body`                |
+| **Cloudinary** | —   | Attachments and verification docs, uploaded straight from memory                     |
+| **Resend**     | —   | Transactional email                                                                  |
+| **Docker**     | —   | Deployment image, pinned to the same Bun that wrote `bun.lock`                       |
 
 A note on Prisma 7: the client is generated with the `prisma-client` generator into
 `prisma/src/generated/prisma` and committed to the repo. Combined with the pg driver
@@ -162,89 +162,89 @@ A Postman collection with an environment file lives in [`postman/`](postman/).
 
 ### Auth — `/auth`
 
-| Method | Path | Access |
-|---|---|---|
-| `POST` | `/register` | public |
-| `POST` | `/verify-register` | public |
-| `POST` | `/login` | public |
-| `POST` | `/google-login` | public |
-| `POST` | `/forget-password` | public |
-| `POST` | `/verify-forget-password-otp` | public |
-| `POST` | `/refresh-token` | public |
-| `GET` | `/me` | any role |
+| Method | Path                          | Access   |
+| ------ | ----------------------------- | -------- |
+| `POST` | `/register`                   | public   |
+| `POST` | `/verify-register`            | public   |
+| `POST` | `/login`                      | public   |
+| `POST` | `/google-login`               | public   |
+| `POST` | `/forget-password`            | public   |
+| `POST` | `/verify-forget-password-otp` | public   |
+| `POST` | `/refresh-token`              | public   |
+| `GET`  | `/me`                         | any role |
 
 ### Experts — `/expert`
 
-| Method | Path | Access |
-|---|---|---|
-| `POST` | `/register` | public |
-| `POST` | `/verify` | public · multipart, up to 5 documents |
-| `POST` | `/student-register` | student — upgrade an existing student account |
-| `POST` | `/approve` | admin |
-| `GET` | `/get-all` | admin |
+| Method | Path                | Access                                        |
+| ------ | ------------------- | --------------------------------------------- |
+| `POST` | `/register`         | public                                        |
+| `POST` | `/verify`           | public · multipart, up to 5 documents         |
+| `POST` | `/student-apply`    | student · multipart — apply to also become an expert |
+| `POST` | `/approve`          | admin                                         |
+| `GET`  | `/get-all`          | admin                                         |
 
 ### Students — `/student`
 
-| Method | Path | Access |
-|---|---|---|
-| `GET` | `/me` | student |
-| `PATCH` | `/me` | student |
-| `GET` | `/get-all` | admin |
-| `GET` | `/:studentId` | admin |
+| Method  | Path          | Access  |
+| ------- | ------------- | ------- |
+| `GET`   | `/me`         | student |
+| `PATCH` | `/me`         | student |
+| `GET`   | `/get-all`    | admin   |
+| `GET`   | `/:studentId` | admin   |
 
 ### Assignments — `/assignment`
 
-| Method | Path | Access |
-|---|---|---|
-| `POST` | `/create` | student · multipart, one attachment |
-| `GET` | `/feed` | public — open assignments |
-| `GET` | `/:assignmentId/get` | public |
-| `GET` | `/my-assignments` | student, expert |
-| `PATCH` | `/:assignmentId/submit` | expert · multipart |
-| `PATCH` | `/:assignmentId/action` | student — accept or reject a submission |
-| `GET` | `/dispute/:assignmentId` | admin |
-| `PATCH` | `/dispute/:assignmentId/action` | admin |
+| Method  | Path                            | Access                                  |
+| ------- | ------------------------------- | --------------------------------------- |
+| `POST`  | `/create`                       | student · multipart, one attachment     |
+| `GET`   | `/feed`                         | public — open assignments               |
+| `GET`   | `/:assignmentId/get`            | public                                  |
+| `GET`   | `/my-assignments`               | student, expert                         |
+| `PATCH` | `/:assignmentId/submit`         | expert · multipart                      |
+| `PATCH` | `/:assignmentId/action`         | student — accept or reject a submission |
+| `GET`   | `/dispute/:assignmentId`        | admin                                   |
+| `PATCH` | `/dispute/:assignmentId/action` | admin                                   |
 
 ### Bids — `/bid`
 
-| Method | Path | Access |
-|---|---|---|
-| `POST` | `/make-bid` | expert |
-| `GET` | `/my-bids` | expert |
-| `DELETE` | `/:bidId/delete` | expert |
-| `GET` | `/assignment/:assignmentId` | student — bids on their assignment |
-| `PUT` | `/:bidId/accept` | student |
+| Method   | Path                        | Access                             |
+| -------- | --------------------------- | ---------------------------------- |
+| `POST`   | `/make-bid`                 | expert                             |
+| `GET`    | `/my-bids`                  | expert                             |
+| `DELETE` | `/:bidId/delete`            | expert                             |
+| `GET`    | `/assignment/:assignmentId` | student — bids on their assignment |
+| `PUT`    | `/:bidId/accept`            | student                            |
 
 ### Payments — `/payment`
 
-| Method | Path | Access |
-|---|---|---|
-| `POST` | `/initiate-checkout/:assignmentId` | student |
-| `GET` | `/callback/bkash` | public — gateway callback |
-| `GET` | `/history` | student, admin |
+| Method | Path                               | Access                    |
+| ------ | ---------------------------------- | ------------------------- |
+| `POST` | `/initiate-checkout/:assignmentId` | student                   |
+| `GET`  | `/callback/bkash`                  | public — gateway callback |
+| `GET`  | `/history`                         | student, admin            |
 
 ### Escrow — `/escrow`
 
-| Method | Path | Access |
-|---|---|---|
-| `GET` | `/vault/:assignmentId` | student, expert, admin |
-| `GET` | `/admin/revenue-analytics` | admin |
+| Method | Path                       | Access                 |
+| ------ | -------------------------- | ---------------------- |
+| `GET`  | `/vault/:assignmentId`     | student, expert, admin |
+| `GET`  | `/admin/revenue-analytics` | admin                  |
 
 ### Reviews — `/review`
 
-| Method | Path | Access |
-|---|---|---|
-| `POST` | `/write` | student |
-| `GET` | `/expert/:expertId` | public |
-| `GET` | `/:assignmentId` | public |
+| Method | Path                | Access  |
+| ------ | ------------------- | ------- |
+| `POST` | `/write`            | student |
+| `GET`  | `/expert/:expertId` | public  |
+| `GET`  | `/:assignmentId`    | public  |
 
 ### Analytics — `/analytics`
 
-| Method | Path | Access |
-|---|---|---|
-| `GET` | `/admin/overview` | admin |
-| `GET` | `/student/overview` | student |
-| `GET` | `/expert/overview` | expert |
+| Method | Path                | Access  |
+| ------ | ------------------- | ------- |
+| `GET`  | `/admin/overview`   | admin   |
+| `GET`  | `/student/overview` | student |
+| `GET`  | `/expert/overview`  | expert  |
 
 ## Response shape
 
