@@ -1,13 +1,14 @@
 import app from "./app";
 import envConfig from "./app/config/env";
 import { redisClient } from "./app/config/redis";
+import { seedData } from "./app/utils/seed";
 
 const PORT = process.env.PORT || 4000;
 
 async function server() {
   try {
     await redisClient.connect();
-    // await seedData();
+    await seedData();
     const httpServer = app.listen(PORT, () => {
       console.log(`Server is running on port http://localhost:${PORT}`);
     });

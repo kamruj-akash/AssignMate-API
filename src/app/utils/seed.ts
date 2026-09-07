@@ -24,7 +24,7 @@ const experts = [
   },
   {
     name: "Expert User 2",
-    email: "expert2@gmail.com",
+    email: "expert1@gmail.com",
     password,
     role: Role.EXPERT,
     department: "Mathematics",
@@ -34,7 +34,7 @@ const experts = [
   },
   {
     name: "Expert User 3",
-    email: "expert3@gmail.com",
+    email: "expert2@gmail.com",
     password,
     role: Role.EXPERT,
     department: "Physics",
