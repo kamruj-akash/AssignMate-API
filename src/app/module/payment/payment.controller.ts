@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import httpStatus from "http-status";
+import type { IQuery } from "../../interface";
 import type { RequestUser } from "../../middleware/authCheck";
 import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
@@ -30,7 +31,21 @@ const bkashCallback = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const paymentHistory = catchAsync(async (req: Request, res: Response) => {});
+const paymentHistory = catchAsync(async (req: Request, res: Response) => {
+  const query: IQuery = req.query;
+  const result = await paymentService.paymentHistory(
+    query,
+    req.user as RequestUser,
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Payment history retrieved successfully",
+    data: result.data,
+    meta: result.meta,
+  });
+});
 
 export const paymentController = {
   initiateCheckout,

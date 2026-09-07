@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "7d3f1a92-6c48-4b21-8e5d-1f90c3a7b264",
+    "_postman_id": "1c9a4d76-5f02-4e83-9a41-6b7d02e5c318",
     "name": "AssignMate API",
-    "description": "REST API for **AssignMate** (Assignment Bridge) - students post assignments, verified experts bid and deliver.\n\n### Base URL\nEvery route lives under `{{baseUrl}}` = `{{serverUrl}}/api/v1`. The health check is the one exception and sits at `{{serverUrl}}/`.\n\n### Roles\n`STUDENT` | `EXPERT` | `ADMIN`\n\n### Auth\n`POST /auth/login` sets `accessToken` (15 min) and `refreshToken` (7 days) as httpOnly cookies **and** returns both in the response body. Protected routes accept either the cookie or an `Authorization: Bearer <token>` header - the collection sends the bearer header from `{{accessToken}}`, which the login test script fills in.\n\nIf the access token has expired but the refresh cookie is still valid, the `auth` middleware silently mints a new access token and sets it as a cookie.\n\n### Suggested run order\n1. `Health / Health Check`\n2. `Auth / Register User` -> `Verify Register OTP` (paste the emailed code into `{{otp}}`)\n3. `Auth / Login` - fills `{{accessToken}}` and `{{refreshToken}}`\n4. `Expert / Register Expert` -> `Verify Expert` (multipart)\n5. Log in as an admin, then `Expert / Get All Experts` -> `Approve / Reject Expert`\n6. `Assignment / Create Assignment` -> `Get Open Assignments`\n\n### Multipart routes\n`POST /expert/verify` and `POST /expert/student-register` are `multipart/form-data`: the JSON payload goes in a single text field named `body` (stringified JSON), files go under `documents` (max 5). Leave `Content-Type` unset so Postman can add the boundary.\n\n### Variables\n| variable | default |\n| --- | --- |\n| `serverUrl` | `http://localhost:4000` |\n| `baseUrl` | `{{serverUrl}}/api/v1` |\n| `accessToken` / `refreshToken` | filled by the login test script |\n| `otp` | paste the 6-digit code from your inbox |\n| `expertId` | filled by `Get All Experts` |\n| `studentId` | uuid of a `students` row - needed by `Create Assignment` |\n| `assignmentId` | filled by `Create Assignment` |\n\n### Success shape\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"...\",\n  \"data\": {}\n}\n```\n\n### Error shape\n```json\n{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"name\": \"Error\",\n  \"message\": \"...\",\n  \"error\": {},\n  \"stack\": \"...\"\n}\n```\n`name`, `error` and `stack` are only populated when `NODE_ENV=development`.",
+    "description": "REST API for **AssignMate** - students post assignments, verified experts bid, deliver, and get paid out of escrow.\n\n### Base URL\nEverything lives under `{{baseUrl}}` = `{{serverUrl}}/api/v1`. The health check is the one exception and sits at `{{serverUrl}}/`.\n\n### Roles\n`STUDENT` | `EXPERT` | `ADMIN`\n\n### Auth\n`POST /auth/login` returns `{ accessToken, refreshToken, role }` in the body **and** sets both as httpOnly cookies. Protected routes accept either the cookie or an `Authorization: Bearer <token>` header - this collection sends the bearer header from `{{accessToken}}`, which the login test script fills in automatically.\n\nIf the access token has expired but the refresh cookie is still valid, the `auth` middleware silently mints a new access token and returns it in the `x-access-token` response header.\n\nPublic routes (`Health`, all of `Auth` except `Get Me`, `Expert / Register`, `Expert / Verify`, `Assignment / Feed`, `Assignment / Get By Id`, `Payment / Callback`) are marked **No Auth** individually.\n\n### Suggested run order\n1. `Health / Health Check`\n2. `Auth / Register User` -> `Verify Register OTP` (paste the emailed code into `{{otp}}`)\n3. `Auth / Login` as the student - fills `{{accessToken}}`\n4. `Assignment / Create Assignment` - fills `{{assignmentId}}`\n5. `Auth / Login` as the expert -> `Bid / Make Bid`\n6. `Auth / Login` as the student -> `Bid / Get Bids By Assignment` -> `Accept Bid`\n7. `Payment / Initiate Checkout` -> pay on the bKash page (bKash calls the callback)\n8. `Auth / Login` as the expert -> `Assignment / Submit Assignment`\n9. `Auth / Login` as the student -> `Assignment / Assignment Action` (`COMPLETED` releases escrow)\n10. `Payment / Payment History` as either the student or an admin\n\nBecause tokens are per-role, re-run `Auth / Login` with the matching credentials whenever the role changes.\n\n### Multipart routes\n`POST /expert/verify`, `POST /expert/student-register`, `POST /assignment/create` and `PATCH /assignment/:id/submit` are `multipart/form-data`. The JSON payload goes in a **single text field named `body`** (stringified JSON) - that is what `multipartDataValidationZod` parses. Files go under `documents` (max 5) or `attachment` (single). Leave `Content-Type` unset so Postman can add the boundary.\n\n### Pagination\nList endpoints take `searchTerm`, `page`, `limit`, `sortBy`, `sortOrder` and respond with:\n```json\n{ \"data\": [], \"meta\": { \"page\": 1, \"limit\": 10, \"total\": 0, \"totalPages\": 0 } }\n```\nQuery params are disabled by default - tick the ones you want.\n\n### Success shape\n```json\n{\n  \"success\": true,\n  \"statusCode\": 200,\n  \"message\": \"...\",\n  \"data\": {}\n}\n```\n\n### Error shape\n```json\n{\n  \"success\": false,\n  \"statusCode\": 400,\n  \"name\": \"Error\",\n  \"message\": \"...\",\n  \"error\": {},\n  \"stack\": \"...\"\n}\n```\n`name`, `error` and `stack` are only populated when `NODE_ENV=development`.\n\n### Not yet mounted\n`escrow`, `review` and `student` have route files in `src/app/module/` but they are empty and not registered in `src/app.ts`, so they have no requests here.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -17,14 +17,46 @@
   },
   "event": [
     {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Runs before every request. Keeps future-dated fields valid so saved",
+          "// bodies never fail the `must be in the future` Zod refinements.",
+          "const days = (n) => new Date(Date.now() + n * 24 * 60 * 60 * 1000).toISOString();",
+          "",
+          "pm.collectionVariables.set(\"deadline\", days(14));",
+          "pm.collectionVariables.set(\"estimatedDelivery\", days(7));"
+        ]
+      }
+    },
+    {
       "listen": "test",
       "script": {
         "type": "text/javascript",
         "exec": [
-          "// Applies to every request in the collection.",
-          "pm.test(\"responds with JSON\", function () {",
-          "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"json\");",
-          "});"
+          "// Runs after every request.",
+          "const ct = pm.response.headers.get(\"Content-Type\") || \"\";",
+          "",
+          "// The bKash callback answers with a 302 redirect, not JSON.",
+          "if (pm.response.code !== 302) {",
+          "  pm.test(\"responds with JSON\", function () {",
+          "    pm.expect(ct).to.include(\"json\");",
+          "  });",
+          "",
+          "  pm.test(\"envelope has success + statusCode\", function () {",
+          "    const body = pm.response.json();",
+          "    pm.expect(body).to.have.property(\"success\");",
+          "    pm.expect(body).to.have.property(\"statusCode\");",
+          "  });",
+          "}",
+          "",
+          "// Surface auth-middleware token rotation.",
+          "const rotated = pm.response.headers.get(\"x-access-token\");",
+          "if (rotated) {",
+          "  pm.collectionVariables.set(\"accessToken\", rotated);",
+          "  console.log(\"access token was refreshed by the server\");",
+          "}"
         ]
       }
     }
@@ -33,22 +65,32 @@
     {
       "key": "serverUrl",
       "value": "http://localhost:4000",
-      "type": "string"
+      "type": "string",
+      "description": "Server origin. Matches PORT in .env."
     },
     {
       "key": "baseUrl",
       "value": "{{serverUrl}}/api/v1",
-      "type": "string"
+      "type": "string",
+      "description": "API prefix for every route except the health check."
     },
     {
       "key": "accessToken",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Filled by Auth / Login."
     },
     {
       "key": "refreshToken",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Filled by Auth / Login."
+    },
+    {
+      "key": "currentRole",
+      "value": "",
+      "type": "string",
+      "description": "Role of the token currently in accessToken."
     },
     {
       "key": "studentEmail",
@@ -82,95 +124,99 @@
     },
     {
       "key": "otp",
-      "value": "123456",
-      "type": "string"
+      "value": "",
+      "type": "string",
+      "description": "Paste the 6-digit code from your inbox."
     },
     {
       "key": "googleIdToken",
       "value": "",
-      "type": "string"
-    },
-    {
-      "key": "expertId",
-      "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Google ID token for /auth/google-login."
     },
     {
       "key": "studentId",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Filled by Auth / Get Me."
+    },
+    {
+      "key": "expertId",
+      "value": "",
+      "type": "string",
+      "description": "Filled by Auth / Get Me or Expert / Get All Experts."
     },
     {
       "key": "assignmentId",
       "value": "",
-      "type": "string"
+      "type": "string",
+      "description": "Filled by Assignment / Create Assignment or Feed."
+    },
+    {
+      "key": "bidId",
+      "value": "",
+      "type": "string",
+      "description": "Filled by Bid / Make Bid or the bid list endpoints."
+    },
+    {
+      "key": "deadline",
+      "value": "",
+      "type": "string",
+      "description": "Stamped by the collection pre-request script: now + 14 days."
+    },
+    {
+      "key": "estimatedDelivery",
+      "value": "",
+      "type": "string",
+      "description": "Stamped by the collection pre-request script: now + 7 days."
     }
   ],
   "item": [
     {
       "name": "Health",
-      "description": "Liveness probe mounted at the server root, outside `/api/v1`.",
+      "description": "Liveness probe. Sits at the server root, not under `/api/v1`.",
       "item": [
         {
           "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{serverUrl}}",
+              "host": [
+                "{{serverUrl}}"
+              ],
+              "path": []
+            },
+            "description": "`GET /` -> `{ \"message\": \"Hello Assignment Bridge V1.0!\" }`. Public.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"server is up\", () => pm.response.to.have.status(200));"
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
                 ]
               }
             }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{serverUrl}}/",
-              "host": [
-                "{{serverUrl}}"
-              ],
-              "path": [
-                ""
-              ]
-            },
-            "description": "Returns `{ \"message\": \"Hello Assignment Bridge V1.0!\" }` with status 200 when the server is up."
-          },
-          "response": []
+          ]
         }
       ]
     },
     {
       "name": "Auth",
-      "description": "Registration, OTP verification, login, password reset and token refresh.\n\n`POST /auth/login` sets `accessToken` (15m) and `refreshToken` (7d) as httpOnly cookies **and** returns them in the response body. The login test script copies both into collection variables so every protected request works right after.",
+      "description": "Registration, OTP verification, login and token refresh.\n\nRun `Login` before anything else - it fills `{{accessToken}}`.",
       "item": [
         {
           "name": "Register User",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Jane Student\",\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{studentPassword}}\",\n  \"role\": \"STUDENT\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/register",
               "host": [
@@ -181,32 +227,27 @@
                 "register"
               ]
             },
-            "description": "Creates a pending user and emails a 6-digit OTP.\n\n| field | rule |\n| --- | --- |\n| `name` | 3-255 chars |\n| `email` | valid email |\n| `password` | 6-64 chars |\n| `role` | optional - `STUDENT` \\| `EXPERT` \\| `ADMIN` (defaults to `STUDENT`) |\n\nThe account stays unverified until `POST /auth/verify-register` succeeds."
+            "description": "Creates the user in a pending state and emails a 6-digit OTP.\n\n`role` is optional and defaults to `STUDENT`. Allowed: `STUDENT` | `EXPERT` | `ADMIN`.\n\nPassword: 6-64 chars. Name: 3-255 chars.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Student\",\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{studentPassword}}\",\n  \"role\": \"STUDENT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         },
         {
           "name": "Verify Register OTP",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"otp\": \"{{otp}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/verify-register",
               "host": [
@@ -217,52 +258,27 @@
                 "verify-register"
               ]
             },
-            "description": "Confirms the 6-digit OTP that was emailed by `POST /auth/register` and activates the account.\n\nSet the `otp` collection variable to the code from your inbox before sending."
-          },
-          "response": []
-        },
-        {
-          "name": "Login",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const res = pm.response.json();",
-                  "",
-                  "pm.test(\"login succeeded\", () => pm.expect(res.success).to.be.true);",
-                  "",
-                  "if (res?.data?.accessToken) {",
-                  "  pm.collectionVariables.set(\"accessToken\", res.data.accessToken);",
-                  "}",
-                  "if (res?.data?.refreshToken) {",
-                  "  pm.collectionVariables.set(\"refreshToken\", res.data.refreshToken);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
+            "description": "Confirms the emailed OTP and activates the account.\n\nPaste the 6-digit code from your inbox into the `otp` collection variable first.",
             "auth": {
               "type": "noauth"
             },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{studentPassword}}\"\n}",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"otp\": \"{{otp}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            },
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/login",
               "host": [
@@ -273,9 +289,42 @@
                 "login"
               ]
             },
-            "description": "Logs in with email + password.\n\nOn success the server sets the `accessToken` / `refreshToken` cookies and returns them in `data`. The test script stores both into collection variables, so run this first when you come back to the collection."
+            "description": "Returns `{ accessToken, refreshToken, role }` **and** sets both as httpOnly cookies.\n\nThe test script stores the tokens in `{{accessToken}}` / `{{refreshToken}}`, which the collection-level bearer auth uses for every other request. Run this first.\n\nSwap the body to `{{expertEmail}}` / `{{adminEmail}}` to switch roles.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"password\": \"{{studentPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body.data && body.data.accessToken) {",
+                  "  pm.collectionVariables.set(\"accessToken\", body.data.accessToken);",
+                  "  pm.collectionVariables.set(\"refreshToken\", body.data.refreshToken);",
+                  "  pm.collectionVariables.set(\"currentRole\", body.data.role);",
+                  "  console.log(\"logged in as\", body.data.role);",
+                  "} else {",
+                  "  console.warn(\"no token in response - tokens not updated\");",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Get Me",
@@ -292,32 +341,30 @@
                 "me"
               ]
             },
-            "description": "Returns the logged-in user's profile.\n\nAllowed roles: `STUDENT`, `EXPERT`, `ADMIN`.\n\nThe `auth` middleware reads the `accessToken` cookie first and falls back to the `Authorization: Bearer <token>` header. If the access token is missing but a valid `refreshToken` cookie is present, a fresh access token is minted and set as a cookie automatically."
+            "description": "Current user with the `student` / `expert` profile joined in. Password omitted.\n\nAny authenticated role."
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const d = pm.response.json().data || {};",
+                  "if (d.student && d.student.id) pm.collectionVariables.set(\"studentId\", d.student.id);",
+                  "if (d.expert && d.expert.id) pm.collectionVariables.set(\"expertId\", d.expert.id);"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Forget Password",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{studentEmail}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/forget-password",
               "host": [
@@ -328,32 +375,27 @@
                 "forget-password"
               ]
             },
-            "description": "Emails a 6-digit password-reset OTP to the address. Always responds `200` so the endpoint cannot be used to probe which emails exist."
+            "description": "Emails a password-reset OTP. Always returns 200.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         },
         {
           "name": "Verify Forget Password OTP",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"otp\": \"{{otp}}\",\n  \"newPassword\": \"newPass123\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/verify-forget-password-otp",
               "host": [
@@ -364,32 +406,27 @@
                 "verify-forget-password-otp"
               ]
             },
-            "description": "Consumes the reset OTP and sets the new password (6-64 chars). The OTP must be exactly 6 characters."
+            "description": "Consumes the reset OTP and sets `newPassword` (6-64 chars).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"otp\": \"{{otp}}\",\n  \"newPassword\": \"{{studentPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         },
         {
           "name": "Google Login",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"idToken\": \"{{googleIdToken}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/google-login",
               "host": [
@@ -400,34 +437,25 @@
                 "google-login"
               ]
             },
-            "description": "Exchanges a Google **ID token** (not an access token) for an app session. The token is verified against `GOOGLE_CLIENT_ID`; the email must be verified by Google. A first-time email creates a `GOOGLE` provider user.\n\n> Note: this route has no Zod validation attached, so an invalid shape surfaces as a Google verification error rather than a 400 field error."
+            "description": "Exchanges a Google ID token for app tokens; creates the user on first sight.\n\n> **Known issue:** `authController.googleLogin` passes the whole `req.body` object into `authService.googleLogin(googleIdToken: string)`, so `verifyIdToken` receives an object and rejects the token. This route needs a controller fix (`req.body.idToken`) before it works.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"{{googleIdToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         },
         {
           "name": "Refresh Token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const res = pm.response.json();",
-                  "",
-                  "if (res?.data?.accessToken) {",
-                  "  pm.collectionVariables.set(\"accessToken\", res.data.accessToken);",
-                  "}",
-                  "if (res?.data?.refreshToken) {",
-                  "  pm.collectionVariables.set(\"refreshToken\", res.data.refreshToken);",
-                  "}"
-                ]
-              }
-            }
-          ],
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
             "header": [],
             "url": {
@@ -440,38 +468,39 @@
                 "refresh-token"
               ]
             },
-            "description": "Reads the `refreshToken` **cookie** (not the body, not a header) and issues a new access + refresh token pair, re-setting both cookies.\n\nRun `Login` first in the same Postman session so the cookie jar holds the refresh token."
+            "description": "Mints a fresh access + refresh pair.\n\nReads the token from the **`refreshToken` cookie only** (`req.cookies.refreshToken`) - a JSON body is ignored. Run `Login` in the same Postman cookie jar first so the cookie is present for `{{serverUrl}}`.",
+            "auth": {
+              "type": "noauth"
+            }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.data && body.data.accessToken) {",
+                  "  pm.collectionVariables.set(\"accessToken\", body.data.accessToken);",
+                  "  pm.collectionVariables.set(\"refreshToken\", body.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
       "name": "Expert",
-      "description": "Expert onboarding and admin approval.\n\n**Multipart routes** (`/verify`, `/student-register`) expect the JSON payload in a single form field named `body` (stringified JSON) plus up to 5 files under `documents`. Do **not** set `Content-Type` manually - Postman adds the multipart boundary itself.",
+      "description": "Expert onboarding, document upload and admin approval.",
       "item": [
         {
           "name": "Register Expert",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"John Expert\",\n  \"email\": \"{{expertEmail}}\",\n  \"password\": \"{{expertPassword}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/expert/register",
               "host": [
@@ -482,35 +511,27 @@
                 "register"
               ]
             },
-            "description": "Creates an expert account and emails the OTP. Body: `name` (3-255), `email`, `password` (6-64).\n\nContinue with `Verify Expert` to submit credentials and documents."
+            "description": "Starts expert signup and emails an OTP. Complete it with `Verify Expert`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Expert\",\n  \"email\": \"{{expertEmail}}\",\n  \"password\": \"{{expertPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         },
         {
           "name": "Verify Expert",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
             "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "body",
-                  "value": "{\n  \"email\": \"{{expertEmail}}\",\n  \"otp\": \"{{otp}}\",\n  \"university\": \"University of Dhaka\",\n  \"department\": \"Computer Science\",\n  \"ratePerAssignment\": 1500,\n  \"bio\": \"Final-year CS student, 3 years of tutoring experience.\"\n}",
-                  "type": "text",
-                  "description": "Stringified JSON payload - required by multipartDataValidationZod."
-                },
-                {
-                  "key": "documents",
-                  "type": "file",
-                  "src": [],
-                  "description": "Up to 5 verification documents (student ID, transcript, ...). Pick the files in Postman."
-                }
-              ]
-            },
             "url": {
               "raw": "{{baseUrl}}/expert/verify",
               "host": [
@@ -521,7 +542,27 @@
                 "verify"
               ]
             },
-            "description": "Confirms the OTP **and** submits the expert profile plus verification documents in one multipart request.\n\n`body` field (stringified JSON):\n\n| field | rule |\n| --- | --- |\n| `email` | valid email |\n| `otp` | exactly 6 chars |\n| `university` | min 2 chars |\n| `department` | min 2 chars |\n| `ratePerAssignment` | number > 0 (a JSON number, not a string) |\n| `bio` | optional, max 1000 chars |\n\n`documents`: up to 5 files, uploaded to Cloudinary. The expert lands in `PENDING` until an admin approves."
+            "description": "**multipart/form-data.** Confirms the OTP and creates the expert profile in `PENDING`.\n\n- `body` - stringified JSON (see the pre-filled field)\n- `documents` - up to 5 files (transcripts, ID, certificates)\n\nLeave `Content-Type` unset so Postman adds the multipart boundary.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "body",
+                  "value": "{\n  \"email\": \"{{expertEmail}}\",\n  \"otp\": \"{{otp}}\",\n  \"university\": \"University of Dhaka\",\n  \"department\": \"Computer Science\",\n  \"ratePerAssignment\": 1500,\n  \"bio\": \"5 years of tutoring experience in algorithms and databases.\"\n}",
+                  "type": "text",
+                  "description": "Stringified JSON payload. multipartDataValidationZod parses this field."
+                },
+                {
+                  "key": "documents",
+                  "type": "file",
+                  "src": [],
+                  "description": "Up to 5 files. Add the row multiple times for more."
+                }
+              ]
+            }
           },
           "response": []
         },
@@ -530,23 +571,6 @@
           "request": {
             "method": "POST",
             "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "body",
-                  "value": "{\n  \"university\": \"University of Dhaka\",\n  \"department\": \"Computer Science\",\n  \"ratePerAssignment\": 1200,\n  \"bio\": \"Happy to help with data structures and algorithms.\"\n}",
-                  "type": "text",
-                  "description": "Stringified JSON payload - required by multipartDataValidationZod."
-                },
-                {
-                  "key": "documents",
-                  "type": "file",
-                  "src": [],
-                  "description": "Up to 5 verification documents."
-                }
-              ]
-            },
             "url": {
               "raw": "{{baseUrl}}/expert/student-register",
               "host": [
@@ -557,99 +581,34 @@
                 "student-register"
               ]
             },
-            "description": "Lets an already logged-in `STUDENT` apply to become an expert. Same multipart shape as `Verify Expert` but **without** `email`/`otp` - the identity comes from the access token.\n\nRequires role: `STUDENT`."
-          },
-          "response": []
-        },
-        {
-          "name": "Approve / Reject Expert",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "description": "**multipart/form-data.** Lets an already-logged-in `STUDENT` open an expert profile - no OTP, the account is already verified.\n\nRequires a `STUDENT` access token.",
             "body": {
-              "mode": "raw",
-              "raw": "{\n  \"expertId\": \"{{expertId}}\",\n  \"status\": \"APPROVE\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "body",
+                  "value": "{\n  \"university\": \"University of Dhaka\",\n  \"department\": \"Computer Science\",\n  \"ratePerAssignment\": 1200,\n  \"bio\": \"Final-year CS student, strong in data structures.\"\n}",
+                  "type": "text",
+                  "description": "Stringified JSON payload. multipartDataValidationZod parses this field."
+                },
+                {
+                  "key": "documents",
+                  "type": "file",
+                  "src": [],
+                  "description": "Up to 5 files."
                 }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/expert/approve",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "expert",
-                "approve"
               ]
-            },
-            "description": "Admin decision on a pending expert.\n\n| field | rule |\n| --- | --- |\n| `expertId` | uuid of the `experts` row |\n| `status` | `APPROVE` or `REJECT` (case-insensitive - it is upper-cased before validation) |\n| `reason` | max 500 chars, **required when rejecting** |\n\nRequires role: `ADMIN`."
-          },
-          "response": []
-        },
-        {
-          "name": "Reject Expert",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"expertId\": \"{{expertId}}\",\n  \"status\": \"REJECT\",\n  \"reason\": \"Submitted documents are unreadable. Please re-upload.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{baseUrl}}/expert/approve",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "expert",
-                "approve"
-              ]
-            },
-            "description": "Same endpoint as above with `status: \"REJECT\"`. The `reason` field is mandatory here - omitting it fails validation with `Reason is required when rejecting an expert`."
+            }
           },
           "response": []
         },
         {
           "name": "Get All Experts",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const res = pm.response.json();",
-                  "const first = res?.data?.data?.[0];",
-                  "",
-                  "if (first?.id) {",
-                  "  pm.collectionVariables.set(\"expertId\", first.id);",
-                  "}"
-                ]
-              }
-            }
-          ],
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/expert/get-all?searchTerm=&status=PENDING&page=1&limit=10&sortBy=createdAt&sortOrder=desc",
+              "raw": "{{baseUrl}}/expert/get-all?",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -661,37 +620,112 @@
                 {
                   "key": "searchTerm",
                   "value": "",
-                  "description": "Free-text search.",
+                  "description": "Matches name / email / university / department",
                   "disabled": true
                 },
                 {
                   "key": "status",
                   "value": "PENDING",
-                  "description": "PENDING | APPROVE | REJECT"
+                  "description": "PENDING | APPROVE | REJECT (case-insensitive)",
+                  "disabled": true
                 },
                 {
                   "key": "page",
                   "value": "1",
-                  "description": "Positive integer."
+                  "description": "",
+                  "disabled": true
                 },
                 {
                   "key": "limit",
                   "value": "10",
-                  "description": "Positive integer, max 100."
+                  "description": "max 100",
+                  "disabled": true
                 },
                 {
                   "key": "sortBy",
                   "value": "createdAt",
-                  "description": "See the description table for allowed fields."
+                  "description": "createdAt | updatedAt | university | department | ratePerAssignment | walletBalance | isVerified | verificationStatus",
+                  "disabled": true
                 },
                 {
                   "key": "sortOrder",
                   "value": "desc",
-                  "description": "asc | desc"
+                  "description": "asc | desc",
+                  "disabled": true
                 }
               ]
             },
-            "description": "Paginated, searchable list of experts for the admin dashboard.\n\n| query | notes |\n| --- | --- |\n| `searchTerm` | free-text match |\n| `status` | `PENDING` \\| `APPROVE` \\| `REJECT` (upper-cased for you) |\n| `page` | positive int, default 1 |\n| `limit` | positive int, max 100, default 10 |\n| `sortBy` | `createdAt`, `updatedAt`, `university`, `department`, `ratePerAssignment`, `walletBalance`, `isVerified`, `verificationStatus` |\n| `sortOrder` | `asc` \\| `desc` |\n\nThe test script stores the first result's id into `expertId` so the approve requests are ready to send.\n\nRequires role: `ADMIN`."
+            "description": "Paginated expert directory. **ADMIN only.** Query params are Zod-validated, so an unknown `sortBy` returns 400 rather than a Prisma error.\n\nThe test script captures the first row into `{{expertId}}` for `Approve / Reject Expert`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const rows = pm.response.json().data || [];",
+                  "if (rows.length && rows[0].id) pm.collectionVariables.set(\"expertId\", rows[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve Expert",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/expert/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "expert",
+                "approve"
+              ]
+            },
+            "description": "**ADMIN only.** Sets the expert's verification status.\n\n`status` is upper-cased before validation, so `approve` works too.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expertId\": \"{{expertId}}\",\n  \"status\": \"APPROVE\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Expert",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/expert/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "expert",
+                "approve"
+              ]
+            },
+            "description": "Same endpoint as `Approve Expert` with `status: REJECT`.\n\n`reason` is **required** when rejecting - the Zod refine returns 400 without it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expertId\": \"{{expertId}}\",\n  \"status\": \"REJECT\",\n  \"reason\": \"Submitted documents were unreadable. Please re-upload.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         }
@@ -699,45 +733,13 @@
     },
     {
       "name": "Assignment",
-      "description": "Assignment creation and the open-assignment board.\n\n> Heads-up: `POST /assignment/create` is currently **unauthenticated** and has no Zod schema wired up, so `studentId` must be passed in the body and must reference an existing `students` row.",
+      "description": "Assignment lifecycle: `OPEN` -> (bid accepted) `AWAITING_PAYMENT` -> (payment) `ASSIGNED` -> `IN_PROGRESS` -> `SUBMITTED` -> `UNDER_REVIEW` -> `COMPLETED` | `DISPUTED`.",
       "item": [
         {
           "name": "Create Assignment",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const res = pm.response.json();",
-                  "",
-                  "if (res?.data?.id) {",
-                  "  pm.collectionVariables.set(\"assignmentId\", res.data.id);",
-                  "}"
-                ]
-              }
-            }
-          ],
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"title\": \"Discrete Math problem set 4\",\n  \"description\": \"Need worked solutions for 8 induction and graph-theory problems.\",\n  \"budget\": 2500,\n  \"deadline\": \"2026-10-15T23:59:00.000Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/assignment/create",
               "host": [
@@ -748,59 +750,636 @@
                 "create"
               ]
             },
-            "description": "Creates an assignment in `OPEN` status.\n\n| field | notes |\n| --- | --- |\n| `studentId` | uuid of the `students` row (FK - a bad id fails at the DB layer) |\n| `title` | string |\n| `description` | string |\n| `budget` | number (Float) |\n| `deadline` | ISO-8601 date-time |\n\nThe test script saves the new id into `assignmentId`.\n\n> The controller also looks for a Cloudinary attachment under the `attachment` file field, but the route does not mount multer yet - send JSON for now."
+            "description": "**multipart/form-data. STUDENT only.** Creates an assignment in `OPEN`.\n\n- `body` - stringified JSON: `title` (3-200), `description` (10-2000), `budget` (> 0), `deadline` (ISO 8601, must be in the future)\n- `attachment` - a single optional file, uploaded to Cloudinary\n\nThe pre-request script stamps a deadline 14 days out so the request never goes stale. The test script stores the new id in `{{assignmentId}}`.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "body",
+                  "value": "{\n  \"title\": \"Data Structures assignment - AVL trees\",\n  \"description\": \"Implement an AVL tree with insert, delete and in-order traversal, plus a short write-up on rotation cases.\",\n  \"budget\": 2500,\n  \"deadline\": \"{{deadline}}\"\n}",
+                  "type": "text",
+                  "description": "Stringified JSON payload. multipartDataValidationZod parses this field."
+                },
+                {
+                  "key": "attachment",
+                  "type": "file",
+                  "src": [],
+                  "description": "Single optional file (upload.single)."
+                }
+              ]
+            }
           },
-          "response": []
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "",
+                  "const d = pm.response.json().data;",
+                  "if (d && d.id) pm.collectionVariables.set(\"assignmentId\", d.id);"
+                ]
+              }
+            }
+          ]
         },
         {
-          "name": "Get Open Assignments",
+          "name": "Get Open Assignments (Feed)",
           "request": {
-            "auth": {
-              "type": "noauth"
-            },
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/assignment/all-open?searchTerm=&page=1&limit=10&sortBy=createdAt&sortOrder=desc",
+              "raw": "{{baseUrl}}/assignment/feed?",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "assignment",
-                "all-open"
+                "feed"
               ],
               "query": [
                 {
                   "key": "searchTerm",
                   "value": "",
-                  "description": "Matches title or description.",
+                  "description": "Matches title / description",
                   "disabled": true
                 },
                 {
                   "key": "page",
                   "value": "1",
-                  "description": "Default 1."
+                  "description": "",
+                  "disabled": true
                 },
                 {
                   "key": "limit",
                   "value": "10",
-                  "description": "Default 10."
+                  "description": "",
+                  "disabled": true
                 },
                 {
                   "key": "sortBy",
                   "value": "createdAt",
-                  "description": "Assignment column name. Default createdAt."
+                  "description": "",
+                  "disabled": true
                 },
                 {
                   "key": "sortOrder",
                   "value": "desc",
-                  "description": "asc | desc. Default asc."
+                  "description": "asc | desc",
+                  "disabled": true
                 }
               ]
             },
-            "description": "Lists assignments with `status = OPEN`, paginated.\n\n| query | notes |\n| --- | --- |\n| `searchTerm` | case-insensitive match on `title` and `description` |\n| `page` | default 1 |\n| `limit` | default 10 |\n| `sortBy` | any Assignment column - default `createdAt` |\n| `sortOrder` | `asc` \\| `desc` - default `asc` |\n\nResponse: `{ data: [...], meta: { page, limit, total, totalPages } }`."
+            "description": "Public feed of `OPEN` assignments - no auth required. This is what experts browse before bidding.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const rows = pm.response.json().data || [];",
+                  "if (rows.length && rows[0].id) pm.collectionVariables.set(\"assignmentId\", rows[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Assignment By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assignment/{{assignmentId}}/get",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assignment",
+                "{{assignmentId}}",
+                "get"
+              ]
+            },
+            "description": "Single assignment by id. Public - no auth, no ownership check. 404 if it does not exist.",
+            "auth": {
+              "type": "noauth"
+            }
           },
           "response": []
+        },
+        {
+          "name": "Get My Assignments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assignment/my-assignments?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assignment",
+                "my-assignments"
+              ],
+              "query": [
+                {
+                  "key": "searchTerm",
+                  "value": "",
+                  "description": "Matches title / description",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "ASSIGNED",
+                  "description": "OPEN | ASSIGNED | AWAITING_PAYMENT | IN_PROGRESS | SUBMITTED | UNDER_REVIEW | COMPLETED | CANCELLED | DISPUTED",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "description": "asc | desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Role-aware list. **STUDENT | EXPERT.**\n\n- `STUDENT` - assignments they posted, with the assigned expert and a bid count\n- `EXPERT` - assignments they **won** (`assignedExpertId`), with the student and accepted bid. Pending bids live at `Bid / Get My Bids` instead.\n\nAn `ADMIN` token gets 403 here."
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Assignment",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assignment/{{assignmentId}}/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assignment",
+                "{{assignmentId}}",
+                "submit"
+              ]
+            },
+            "description": "**multipart/form-data. EXPERT only** (must be the assigned expert).\n\n- `status: IN_PROGRESS` - marks work started; no file needed\n- `status: SUBMITTED` - delivers the work; attach the deliverable as `attachment`\n\nOnly valid while the assignment is `ASSIGNED` or `IN_PROGRESS`.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "body",
+                  "value": "{\n  \"status\": \"SUBMITTED\"\n}",
+                  "type": "text",
+                  "description": "Stringified JSON payload. multipartDataValidationZod parses this field."
+                },
+                {
+                  "key": "attachment",
+                  "type": "file",
+                  "src": [],
+                  "description": "The deliverable. Required when status is SUBMITTED."
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assignment Action",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assignment/{{assignmentId}}/action",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assignment",
+                "{{assignmentId}}",
+                "action"
+              ]
+            },
+            "description": "**STUDENT only** (must own the assignment). Drives the post-delivery state machine.\n\nAllowed only while the assignment is `SUBMITTED` or `UNDER_REVIEW`:\n\n- `UNDER_REVIEW` - student is reviewing the delivery\n- `COMPLETED` - releases escrow, credits the expert's `walletBalance`, marks the escrow `RELEASED_TO_EXPERT`\n- `DISPUTED` - **requires `reason`**, stored on `assignment.disputedReason`\n\nRe-sending the current status returns 409.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"COMPLETED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assignment Action - Dispute",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/assignment/{{assignmentId}}/action",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "assignment",
+                "{{assignmentId}}",
+                "action"
+              ]
+            },
+            "description": "Same endpoint with `status: DISPUTED`. `reason` is mandatory here - 400 without it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DISPUTED\",\n  \"reason\": \"The submitted file does not match the brief - section 3 is missing.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bid",
+      "description": "Experts bid on open assignments; students review and accept one.",
+      "item": [
+        {
+          "name": "Make Bid",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bid/make-bid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bid",
+                "make-bid"
+              ]
+            },
+            "description": "**EXPERT only.** Places a bid on an `OPEN` assignment.\n\n- `proposedAmount` > 0\n- `estimatedDelivery` ISO 8601, must be in the future\n- `coverNote` 10-1000 chars\n- `assignmentId` must be a valid UUID\n\nThe pre-request script fills `{{estimatedDelivery}}` with a date 7 days out.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignmentId\": \"{{assignmentId}}\",\n  \"proposedAmount\": 2200,\n  \"estimatedDelivery\": \"{{estimatedDelivery}}\",\n  \"coverNote\": \"I have implemented AVL trees before and can deliver with full test coverage and a write-up.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "if (d && d.id) pm.collectionVariables.set(\"bidId\", d.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Bids By Assignment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bid/assignment/{{assignmentId}}?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bid",
+                "assignment",
+                "{{assignmentId}}"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "asc",
+                  "description": "asc | desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**STUDENT only.** Bids received on one of their own assignments (`PENDING` and `ACCEPTED` only - rejected bids are hidden).\n\nThe test script captures the first bid into `{{bidId}}`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rows = pm.response.json().data || [];",
+                  "if (rows.length && rows[0].id) pm.collectionVariables.set(\"bidId\", rows[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Bids",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bid/my-bids?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bid",
+                "my-bids"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "asc",
+                  "description": "asc | desc",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**EXPERT only.** Every bid this expert has placed, with the assignment joined in."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rows = pm.response.json().data || [];",
+                  "if (rows.length && rows[0].id) pm.collectionVariables.set(\"bidId\", rows[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Accept Bid",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bid/{{bidId}}/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bid",
+                "{{bidId}}",
+                "accept"
+              ]
+            },
+            "description": "**STUDENT only.** Accepts a `PENDING` bid on an `OPEN` assignment.\n\nIn one transaction: the bid becomes `ACCEPTED`, every sibling bid becomes `REJECTED`, and the assignment moves to `AWAITING_PAYMENT`. Pay via `Payment / Initiate Checkout` next."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Bid",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/bid/{{bidId}}/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bid",
+                "{{bidId}}",
+                "delete"
+              ]
+            },
+            "description": "**EXPERT only.** Withdraws their own bid. Only a `PENDING` bid can be withdrawn."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Payment",
+      "description": "bKash tokenized checkout and payment history.\n\nFlow: student accepts a bid (assignment -> `AWAITING_PAYMENT`) -> `Initiate Checkout` -> pay on the bKash page -> bKash hits `Callback` -> payment `PAID`, assignment `ASSIGNED`, escrow `HELD`.",
+      "item": [
+        {
+          "name": "Initiate Checkout (bKash)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment/initiate-checkout/{{assignmentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "initiate-checkout",
+                "{{assignmentId}}"
+              ]
+            },
+            "description": "**STUDENT only.** Creates a bKash tokenized checkout for one of their own assignments and returns the `bkashURL` to redirect the user to.\n\nA `Payment` row is created (or reused) with status `INITIATED`. Returns 400 if the assignment is already `PAID`.\n\nNo request body - the assignment id is in the path."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "if (typeof d === \"string\") console.log(\"open this url in a browser:\", d);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "bKash Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment/callback/bkash?paymentID=TR0011xxxxxxxxxxxxx&status=success&signature=xxxxx",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "callback",
+                "bkash"
+              ],
+              "query": [
+                {
+                  "key": "paymentID",
+                  "value": "TR0011xxxxxxxxxxxxx",
+                  "description": "From bKash",
+                  "disabled": false
+                },
+                {
+                  "key": "status",
+                  "value": "success",
+                  "description": "success | failure | cancel",
+                  "disabled": false
+                },
+                {
+                  "key": "signature",
+                  "value": "xxxxx",
+                  "description": "From bKash",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "**Called by bKash, not by you.** Included for debugging.\n\nOn `success` it executes the payment, marks it `PAID`, flips the assignment to `ASSIGNED` and creates the `HELD` escrow row - then **302-redirects** to the frontend, so Postman shows the redirect target rather than JSON.\n\nAll three query params are required or the route 400s.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Payment History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment/history?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "payment",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "searchTerm",
+                  "value": "",
+                  "description": "transactionId / bkashTrxId / merchantInvoiceNumber / payerReference / assignment title. ADMIN also matches the student's name and email.",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "PAID",
+                  "description": "INITIATED | PAID | FAILED | REFUNDED",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt",
+                  "description": "createdAt | updatedAt | amount | status | paidAt",
+                  "disabled": true
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "description": "asc | desc (default desc)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Paginated payment history, scoped by role. **ADMIN | STUDENT.**\n\n- `STUDENT` - only payments on assignments they own, filtered server-side via `assignment.studentId`; each row includes the assignment summary\n- `ADMIN` - every payment in the system, plus the owning student and their user name / email, and `searchTerm` additionally matches those\n\n`sortBy` is whitelisted - anything else silently falls back to `createdAt`. An unknown `status` returns 400 listing the allowed values.\n\nResponds with `data` + `meta { page, limit, total, totalPages }`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test(\"returns pagination meta\", () => pm.expect(body).to.have.property(\"meta\"));"
+                ]
+              }
+            }
+          ]
         }
       ]
     }
