@@ -15,6 +15,7 @@ import cloudinary from "../../lib/cloudinary";
 import { prisma } from "../../lib/prisma";
 import type { RequestUser } from "../../middleware/authCheck";
 import { AppError } from "../../utils/AppError";
+import { emailService } from "../../utils/email/email.service";
 import type {
   IAssignmentActionPayload,
   ICreateAssignment,
@@ -277,6 +278,9 @@ const submitAssignment = async (
 
   const assignment = await prisma.assignment.findUnique({
     where: { id: assignmentId, assignedExpertId: existUser.expert?.id },
+    include: {
+      student: { include: { user: { omit: { password: true } } } },
+    },
   });
   if (!assignment) {
     throw new AppError(httpStatus.NOT_FOUND, "Assignment not found");
@@ -343,6 +347,13 @@ const submitAssignment = async (
       },
     });
 
+    await emailService.sendAssignmentSubmitted(assignment.student.user.email, {
+      studentName: assignment.student.user.name,
+      expertName: existUser.name,
+      assignmentId: assignment.id,
+      assignmentTitle: assignment.title,
+    });
+
     return updatedAssignment;
   }
 
@@ -368,6 +379,9 @@ const assignmentAction = async (
   }
   const assignment = await prisma.assignment.findUnique({
     where: { id: assignmentId, studentId: existUser.student?.id },
+    include: {
+      assignedExpert: { include: { user: { omit: { password: true } } } },
+    },
   });
   if (!assignment) {
     throw new AppError(httpStatus.NOT_FOUND, "Assignment not found");
@@ -421,8 +435,9 @@ const assignmentAction = async (
     });
     return updatedAssignment;
   }
-  console.log(assignment.assignedExpertId);
   if (payload.status === AssignmentStatus.COMPLETED) {
+    let expertEarnings = "0.00";
+
     const transaction = await prisma.$transaction(async (tx) => {
       const updatedAssignment = await tx.assignment.update({
         where: { id: assignmentId },
@@ -438,17 +453,16 @@ const assignmentAction = async (
         throw new AppError(httpStatus.NOT_FOUND, "Escrow not found");
       }
 
+      expertEarnings = (
+        (Number(getEscrow.totalAmount) * Number(getEscrow.expertEarnings)) /
+        100
+      ).toFixed(2);
+
       await tx.expert.update({
         where: { id: assignment.assignedExpertId as string },
         data: {
           walletBalance: {
-            increment: new Prisma.Decimal(
-              (
-                (Number(getEscrow.totalAmount) *
-                  Number(getEscrow.expertEarnings)) /
-                100
-              ).toFixed(2),
-            ),
+            increment: new Prisma.Decimal(expertEarnings),
           },
         },
       });
@@ -463,6 +477,19 @@ const assignmentAction = async (
 
       return updatedAssignment;
     });
+
+    if (assignment.assignedExpert) {
+      await emailService.sendAssignmentCompleted(
+        assignment.assignedExpert.user.email,
+        {
+          expertName: assignment.assignedExpert.user.name,
+          assignmentId: assignment.id,
+          assignmentTitle: assignment.title,
+          earnings: expertEarnings,
+        },
+      );
+    }
+
     return transaction;
   }
 

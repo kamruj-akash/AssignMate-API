@@ -13,6 +13,7 @@ import { getBkashIdToken } from "../../lib/bkash";
 import { prisma } from "../../lib/prisma";
 import type { RequestUser } from "../../middleware/authCheck";
 import { AppError } from "../../utils/AppError";
+import { emailService } from "../../utils/email/email.service";
 
 const initiateCheckout = async (assignmentId: string, user: RequestUser) => {
   const idToken = await getBkashIdToken();
@@ -179,6 +180,50 @@ const bkashCallback = async (query: Record<string, any>) => {
       });
     });
 
+    const paidAssignment = await prisma.assignment.findUnique({
+      where: { id: bkashPaymentVerifyResult.merchantInvoiceNumber },
+      include: {
+        escrow: true,
+        student: { include: { user: { omit: { password: true } } } },
+        assignedExpert: { include: { user: { omit: { password: true } } } },
+      },
+    });
+
+    if (paidAssignment) {
+      const paidAmount = Number(bkashPaymentVerifyResult.amount);
+
+      const executedAt = new Date(bkashPaymentVerifyResult.paymentExecuteTime);
+      const paidAt = Number.isNaN(executedAt.getTime())
+        ? new Date()
+        : executedAt;
+
+      await emailService.sendPaymentReceipt(paidAssignment.student.user.email, {
+        studentName: paidAssignment.student.user.name,
+        assignmentId: paidAssignment.id,
+        assignmentTitle: paidAssignment.title,
+        amount: paidAmount.toFixed(2),
+        transactionId: bkashPaymentVerifyResult.trxID,
+        paidAt,
+      });
+
+      if (paidAssignment.assignedExpert) {
+        const expertShare = Number(
+          paidAssignment.escrow?.expertEarnings ?? 100,
+        );
+
+        await emailService.sendAssignmentAssigned(
+          paidAssignment.assignedExpert.user.email,
+          {
+            expertName: paidAssignment.assignedExpert.user.name,
+            assignmentId: paidAssignment.id,
+            assignmentTitle: paidAssignment.title,
+            amount: ((paidAmount * expertShare) / 100).toFixed(2),
+            deadline: paidAssignment.deadline,
+          },
+        );
+      }
+    }
+
     return {
       redirectUrl: `${envConfig.frontend_url}/assignment/${bkashPaymentVerifyResult.merchantInvoiceNumber}/result?paymentStatus=success`,
     };
@@ -246,7 +291,9 @@ const paymentHistory = async (query: IQuery, user: RequestUser) => {
       OR: [
         { transactionId: { contains: searchTerm, mode: "insensitive" } },
         { bkashTrxId: { contains: searchTerm, mode: "insensitive" } },
-        { merchantInvoiceNumber: { contains: searchTerm, mode: "insensitive" } },
+        {
+          merchantInvoiceNumber: { contains: searchTerm, mode: "insensitive" },
+        },
         { payerReference: { contains: searchTerm, mode: "insensitive" } },
         {
           assignment: { title: { contains: searchTerm, mode: "insensitive" } },

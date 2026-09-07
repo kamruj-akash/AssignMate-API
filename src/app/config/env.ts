@@ -27,7 +27,13 @@ const envConfig = {
   gClient_id: process.env.GOOGLE_CLIENT_ID as string,
   gClient_secret: process.env.GOOGLE_CLIENT_SECRET as string,
   gRedirect_url: process.env.GOOGLE_REDIRECT_URL as string,
+
+  // resend email
   resend_api: process.env.RESEND_API as string,
+  email_from_name: process.env.EMAIL_FROM_NAME || "AssignMate",
+  email_from_address: process.env.RESEND_EMAIL,
+  email_reply_to: process.env.RESEND_EMAIL,
+  support_email: process.env.SUPPORT_EMAIL || "assign_mate@withakash.dev",
 
   // redis
   redis_url: process.env.REDIS_URL,

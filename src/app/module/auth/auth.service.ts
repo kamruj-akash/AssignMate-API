@@ -12,6 +12,7 @@ import { redisClient } from "../../config/redis";
 import { googleClient } from "../../lib/googleClient";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../utils/AppError";
+import { emailService } from "../../utils/email/email.service";
 import { jwtUtils } from "../../utils/jwt";
 import type {
   IForgetPasswordVerifyOtp,
@@ -20,7 +21,8 @@ import type {
   IVerifyRegOtp,
 } from "./auth.interface";
 
-const generateOtp = Math.floor(100000 + Math.random() * 900000).toString();
+const generateOtp = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
 
 const registerUser = async (payload: IRegisterUser) => {
   const { name, password, role } = payload;
@@ -41,6 +43,7 @@ const registerUser = async (payload: IRegisterUser) => {
       "User already exists, please login",
     );
   }
+  const otp = generateOtp();
   const storedUser = await redisClient.set(
     `newUser:${email}`,
     JSON.stringify({
@@ -54,7 +57,7 @@ const registerUser = async (payload: IRegisterUser) => {
     }),
     { EX: 3600 },
   );
-  const storedOtp = await redisClient.set(`registerOtp:${email}`, generateOtp, {
+  const storedOtp = await redisClient.set(`registerOtp:${email}`, otp, {
     EX: 3600,
   });
   if (!storedUser || !storedOtp) {
@@ -62,6 +65,18 @@ const registerUser = async (payload: IRegisterUser) => {
       httpStatus.INTERNAL_SERVER_ERROR,
       "Something went wrong, please try again",
     );
+  }
+
+  try {
+    await emailService.sendRegistrationOtp(email, {
+      name,
+      otp,
+      expiresInMinutes: 60,
+    });
+  } catch (error) {
+    await redisClient.del(`newUser:${email}`);
+    await redisClient.del(`registerOtp:${email}`);
+    throw error;
   }
 
   return;
@@ -111,6 +126,9 @@ const verifyRegOtp = async (payload: IVerifyRegOtp) => {
   });
   await redisClient.del(`newUser:${email}`);
   await redisClient.del(`registerOtp:${email}`);
+
+  await emailService.sendWelcome(email, { name, role: Role.STUDENT });
+
   return registerUser;
 };
 
@@ -126,26 +144,35 @@ const forgetPassword = async (userEmail: string) => {
       "User does not exist, please register",
     );
   }
-  const storedOtp = await redisClient.set(
-    `forgetPasswordOtp:${email}`,
-    generateOtp,
-    {
-      EX: 300,
-    },
-  );
+  const otp = generateOtp();
+  const storedOtp = await redisClient.set(`forgetPasswordOtp:${email}`, otp, {
+    EX: 300,
+  });
   if (!storedOtp) {
     throw new AppError(
       httpStatus.INTERNAL_SERVER_ERROR,
       "Something went wrong, please try again",
     );
   }
+
+  try {
+    await emailService.sendPasswordResetOtp(email, {
+      name: isUserExists.name,
+      otp,
+      expiresInMinutes: 5,
+    });
+  } catch (error) {
+    await redisClient.del(`forgetPasswordOtp:${email}`);
+    throw error;
+  }
+
   return;
 };
 
 const verifyForgetPasswordOtp = async (payload: IForgetPasswordVerifyOtp) => {
   const { newPassword, otp } = payload;
   const email = payload.email.trim().toLowerCase();
-  const storedOtp = await redisClient.get(`forgetPasswordOtp:${payload.email}`);
+  const storedOtp = await redisClient.get(`forgetPasswordOtp:${email}`);
   if (!storedOtp) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
@@ -165,7 +192,7 @@ const verifyForgetPasswordOtp = async (payload: IForgetPasswordVerifyOtp) => {
     },
     omit: { password: true },
   });
-  await redisClient.del(`forgetPasswordOtp:${payload.email}`);
+  await redisClient.del(`forgetPasswordOtp:${email}`);
 
   return updatedUser;
 };
@@ -286,6 +313,11 @@ const googleLogin = async (googleIdToken: string) => {
       include: {
         student: true,
       },
+    });
+
+    await emailService.sendWelcome(user.email, {
+      name: user.name,
+      role: Role.STUDENT,
     });
   }
 

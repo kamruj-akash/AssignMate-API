@@ -8,6 +8,7 @@ import type { IQuery } from "../../interface";
 import { prisma } from "../../lib/prisma";
 import type { RequestUser } from "../../middleware/authCheck";
 import { AppError } from "../../utils/AppError";
+import { emailService } from "../../utils/email/email.service";
 import type { IBidAssignment } from "./bid.interface";
 
 const bidAssignment = async (
@@ -239,7 +240,10 @@ const acceptBid = async (bidId: string, user: RequestUser) => {
   }
   const bid = await prisma.assignmentBid.findUnique({
     where: { id: bidId },
-    include: { assignment: true },
+    include: {
+      assignment: true,
+      expert: { include: { user: { omit: { password: true } } } },
+    },
   });
 
   if (!bid) {
@@ -301,6 +305,16 @@ const acceptBid = async (bidId: string, user: RequestUser) => {
 
     return acceptedBid;
   });
+
+  await emailService.sendBidAccepted(bid.expert.user.email, {
+    expertName: bid.expert.user.name,
+    studentName: existUser.name,
+    assignmentId: bid.assignmentId,
+    assignmentTitle: bid.assignment.title,
+    proposedAmount: Number(bid.proposedAmount).toFixed(2),
+    deadline: bid.assignment.deadline,
+  });
+
   return transaction;
 };
 

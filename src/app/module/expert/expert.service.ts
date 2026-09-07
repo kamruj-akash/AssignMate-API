@@ -12,6 +12,7 @@ import cloudinary from "../../lib/cloudinary";
 import { prisma } from "../../lib/prisma";
 import type { RequestUser } from "../../middleware/authCheck";
 import { AppError } from "../../utils/AppError";
+import { emailService } from "../../utils/email/email.service";
 import type {
   IApproveExpert,
   IRegisterExpert,
@@ -19,7 +20,8 @@ import type {
   IVerifyExpert,
 } from "./expert.interface";
 
-const generateOtp = Math.floor(100000 + Math.random() * 900000).toString();
+const generateOtp = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
 
 const registerExpert = async (payload: IRegisterExpert) => {
   const { name, email, password: payloadPass } = payload;
@@ -35,6 +37,7 @@ const registerExpert = async (payload: IRegisterExpert) => {
   }
   const userKey = `expertRegister:${email}`;
   const otpKey = `expertRegisterOtp:${email}`;
+  const otp = generateOtp();
   const storedUser = await redisClient.set(
     userKey,
     JSON.stringify({
@@ -46,7 +49,7 @@ const registerExpert = async (payload: IRegisterExpert) => {
       EX: 60 * 60,
     },
   );
-  const storedOtp = await redisClient.set(otpKey, generateOtp, {
+  const storedOtp = await redisClient.set(otpKey, otp, {
     EX: 60 * 60,
   });
   if (!storedOtp && !storedUser) {
@@ -55,6 +58,19 @@ const registerExpert = async (payload: IRegisterExpert) => {
       "Failed to store OTP in Redis",
     );
   }
+
+  try {
+    await emailService.sendExpertRegistrationOtp(email, {
+      name,
+      otp,
+      expiresInMinutes: 60,
+    });
+  } catch (error) {
+    await redisClient.del(userKey);
+    await redisClient.del(otpKey);
+    throw error;
+  }
+
   return;
 };
 
@@ -150,6 +166,8 @@ const verifyExpert = async (
 
   await redisClient.del(userKey);
   await redisClient.del(otpKey);
+
+  await emailService.sendWelcome(email, { name, role: Role.EXPERT });
 
   return user;
 };
@@ -298,6 +316,17 @@ const approveExpert = async (payload: IApproveExpert, user: RequestUser) => {
 
     return expert;
   });
+
+  if (status === ExpertVerificationStatus.REJECT) {
+    await emailService.sendExpertRejected(isExpertExist.user.email, {
+      name: isExpertExist.user.name,
+      reason: updatedExpert.rejectionReason || reason,
+    });
+  } else {
+    await emailService.sendExpertApproved(isExpertExist.user.email, {
+      name: isExpertExist.user.name,
+    });
+  }
 
   return updatedExpert;
 };
