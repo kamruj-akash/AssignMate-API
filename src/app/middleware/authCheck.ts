@@ -52,11 +52,12 @@ const extractToken = (req: Request): string | undefined => {
 };
 
 const getAccessCookieOptions = (): CookieOptions => {
-  const isProd = process.env.NODE_ENV === "production";
+  const isProd = envConfig.node_env === "production";
   return {
     httpOnly: true,
     secure: isProd,
-    sameSite: isProd ? "none" : "lax",
+    sameSite: isProd ? "lax" : "none",
+
     maxAge: ACCESS_TOKEN_MAX_AGE,
   };
 };
