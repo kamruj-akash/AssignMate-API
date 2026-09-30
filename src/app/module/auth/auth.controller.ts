@@ -48,14 +48,14 @@ const loginUser = catchAsync(async (req, res) => {
 
   res.cookie("refreshToken", result.refreshToken, {
     httpOnly: true,
-    secure: envConfig.node_env !== "production",
+    secure: envConfig.node_env === "production" ? false : true,
     sameSite: envConfig.node_env === "production" ? "lax" : "none",
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 
   res.cookie("accessToken", result.accessToken, {
     httpOnly: true,
-    secure: envConfig.node_env !== "production",
+    secure: envConfig.node_env === "production" ? false : true,
     sameSite: envConfig.node_env === "production" ? "lax" : "none",
     maxAge: 15 * 60 * 1000, // 15 minutes
   });
@@ -92,13 +92,13 @@ const refreshToken = catchAsync(async (req, res) => {
   const result = await authService.refreshToken(req.cookies.refreshToken);
   res.cookie("accessToken", result.accessToken, {
     httpOnly: true,
-    secure: envConfig.node_env !== "production",
+    secure: envConfig.node_env === "production" ? false : true,
     sameSite: envConfig.node_env === "production" ? "lax" : "none",
     maxAge: 60 * 15, // 15 minutes
   });
   res.cookie("refreshToken", result.refreshToken, {
     httpOnly: true,
-    secure: envConfig.node_env !== "production",
+    secure: envConfig.node_env === "production" ? false : true,
     sameSite: envConfig.node_env === "production" ? "lax" : "none",
     maxAge: 60 * 60 * 24 * 7, // 7 days
   });
