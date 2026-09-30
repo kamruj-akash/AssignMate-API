@@ -1,6 +1,6 @@
 import httpStatus from "http-status";
-import { getAccessCookieOptions } from "../../middleware/authCheck";
 import { catchAsync } from "../../utils/catchAsync";
+import { getCookieOptions } from "../../utils/cookie";
 import { sendResponse } from "../../utils/sendResponse";
 import { authService } from "./auth.service";
 
@@ -46,11 +46,11 @@ const verifyForgetPasswordOtp = catchAsync(async (req, res) => {
 const loginUser = catchAsync(async (req, res) => {
   const result = await authService.loginUser(req.body);
 
-  res.cookie("refreshToken", result.refreshToken, getAccessCookieOptions());
+  res.cookie("refreshToken", result.refreshToken, getCookieOptions("refresh"));
   res.cookie(
     "accessToken",
     result.accessToken,
-    getAccessCookieOptions("accessToken"),
+    getCookieOptions("access"),
   );
 
   sendResponse(res, {
@@ -86,9 +86,9 @@ const refreshToken = catchAsync(async (req, res) => {
   res.cookie(
     "accessToken",
     result.accessToken,
-    getAccessCookieOptions("accessToken"),
+    getCookieOptions("access"),
   );
-  res.cookie("refreshToken", result.refreshToken, getAccessCookieOptions());
+  res.cookie("refreshToken", result.refreshToken, getCookieOptions("refresh"));
 
   sendResponse(res, {
     success: true,

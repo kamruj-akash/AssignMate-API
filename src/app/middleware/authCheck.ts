@@ -1,4 +1,4 @@
-import type { CookieOptions, NextFunction, Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import httpStatus from "http-status";
 import type { JwtPayload, SignOptions } from "jsonwebtoken";
 import {
@@ -9,6 +9,7 @@ import envConfig from "../config/env";
 import { prisma } from "../lib/prisma";
 import { AppError } from "../utils/AppError";
 import { catchAsync } from "../utils/catchAsync";
+import { getCookieOptions } from "../utils/cookie";
 import { jwtUtils } from "../utils/jwt";
 
 export interface RequestUser {
@@ -26,9 +27,6 @@ declare global {
     }
   }
 }
-
-const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
-const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000; // 15 minutes
 
 const isUsableToken = (value: unknown): value is string => {
   if (typeof value !== "string") return false;
@@ -50,15 +48,6 @@ const extractToken = (req: Request): string | undefined => {
     : rawHeader.trim();
 
   return isUsableToken(headerToken) ? headerToken : undefined;
-};
-
-export const getAccessCookieOptions = (accessToken?: string): CookieOptions => {
-  return {
-    httpOnly: true,
-    secure: envConfig.node_env === "production" ? true : false,
-    sameSite: envConfig.node_env === "production" ? "none" : "lax",
-    maxAge: accessToken ? ACCESS_TOKEN_MAX_AGE : REFRESH_TOKEN_MAX_AGE,
-  };
 };
 
 // auth(Role.ADMIN, Role.USER, Role.AUTHOR)
@@ -93,7 +82,7 @@ export const auth = (...requiredRoles: Role[]) => {
       );
 
       if (!verifiedRefresh.success) {
-        res.clearCookie("accessToken", getAccessCookieOptions());
+        res.clearCookie("accessToken", getCookieOptions("access"));
         throw new AppError(
           httpStatus.UNAUTHORIZED,
           "Session expired. Please log in again.",
@@ -109,7 +98,7 @@ export const auth = (...requiredRoles: Role[]) => {
         envConfig.jwt_access_expires_in as SignOptions,
       );
 
-      res.cookie("accessToken", newAccessToken, getAccessCookieOptions());
+      res.cookie("accessToken", newAccessToken, getCookieOptions("access"));
 
       res.setHeader("x-access-token", newAccessToken);
 
