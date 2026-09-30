@@ -1,5 +1,5 @@
 import httpStatus from "http-status";
-import envConfig from "../../config/env";
+import { getAccessCookieOptions } from "../../middleware/authCheck";
 import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import { authService } from "./auth.service";
@@ -46,19 +46,12 @@ const verifyForgetPasswordOtp = catchAsync(async (req, res) => {
 const loginUser = catchAsync(async (req, res) => {
   const result = await authService.loginUser(req.body);
 
-  res.cookie("refreshToken", result.refreshToken, {
-    httpOnly: true,
-    secure: envConfig.node_env === "production" ? false : true,
-    sameSite: envConfig.node_env === "production" ? "lax" : "none",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  });
-
-  res.cookie("accessToken", result.accessToken, {
-    httpOnly: true,
-    secure: envConfig.node_env === "production" ? false : true,
-    sameSite: envConfig.node_env === "production" ? "lax" : "none",
-    maxAge: 15 * 60 * 1000, // 15 minutes
-  });
+  res.cookie("refreshToken", result.refreshToken, getAccessCookieOptions());
+  res.cookie(
+    "accessToken",
+    result.accessToken,
+    getAccessCookieOptions("accessToken"),
+  );
 
   sendResponse(res, {
     success: true,
@@ -90,18 +83,12 @@ const googleLogin = catchAsync(async (req, res) => {
 
 const refreshToken = catchAsync(async (req, res) => {
   const result = await authService.refreshToken(req.cookies.refreshToken);
-  res.cookie("accessToken", result.accessToken, {
-    httpOnly: true,
-    secure: envConfig.node_env === "production" ? false : true,
-    sameSite: envConfig.node_env === "production" ? "lax" : "none",
-    maxAge: 60 * 15, // 15 minutes
-  });
-  res.cookie("refreshToken", result.refreshToken, {
-    httpOnly: true,
-    secure: envConfig.node_env === "production" ? false : true,
-    sameSite: envConfig.node_env === "production" ? "lax" : "none",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-  });
+  res.cookie(
+    "accessToken",
+    result.accessToken,
+    getAccessCookieOptions("accessToken"),
+  );
+  res.cookie("refreshToken", result.refreshToken, getAccessCookieOptions());
 
   sendResponse(res, {
     success: true,

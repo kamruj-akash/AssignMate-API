@@ -27,6 +27,7 @@ declare global {
   }
 }
 
+const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000; // 15 minutes
 
 const isUsableToken = (value: unknown): value is string => {
@@ -51,14 +52,12 @@ const extractToken = (req: Request): string | undefined => {
   return isUsableToken(headerToken) ? headerToken : undefined;
 };
 
-const getAccessCookieOptions = (): CookieOptions => {
-  const isProd = envConfig.node_env === "production";
+export const getAccessCookieOptions = (accessToken?: string): CookieOptions => {
   return {
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "lax" : "none",
-
-    maxAge: ACCESS_TOKEN_MAX_AGE,
+    secure: envConfig.node_env === "production" ? true : false,
+    sameSite: envConfig.node_env === "production" ? "none" : "lax",
+    maxAge: accessToken ? ACCESS_TOKEN_MAX_AGE : REFRESH_TOKEN_MAX_AGE,
   };
 };
 
