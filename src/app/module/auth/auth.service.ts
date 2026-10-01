@@ -4,6 +4,7 @@ import httpStatus from "http-status";
 import { type JwtPayload, type SignOptions } from "jsonwebtoken";
 import {
   AuthProvider,
+  ExpertVerificationStatus,
   Role,
   UserStatus,
 } from "../../../../prisma/src/generated/prisma/enums";
@@ -202,12 +203,34 @@ const loginUser = async (payload: ILoginUser) => {
   const userEmail = payload.email.trim().toLowerCase();
   const user = await prisma.user.findUnique({
     where: { email: userEmail },
+    include: {
+      student: true,
+      expert: true,
+    },
   });
 
   if (!user) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "User does not exist, please register",
+      "User does not exist, Please register",
+    );
+  }
+
+  if (
+    user.expert &&
+    user.expert.verificationStatus === ExpertVerificationStatus.PENDING
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Your expert account is still pending verification. Please wait for approval.",
+    );
+  } else if (
+    user.expert &&
+    user.expert.verificationStatus === ExpertVerificationStatus.REJECT
+  ) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Your expert account has been rejected. Please contact support for further assistance.",
     );
   }
 

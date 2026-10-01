@@ -14,7 +14,7 @@ const password = await bcrypt.hash(
 const experts = [
   {
     name: "Expert User",
-    email: "expert@gmail.com",
+    email: "expert@assignmate.com",
     password,
     role: Role.EXPERT,
     department: "Computer Science",
@@ -24,7 +24,7 @@ const experts = [
   },
   {
     name: "Expert User 2",
-    email: "expert1@gmail.com",
+    email: "expert1@assignmate.com",
     password,
     role: Role.EXPERT,
     department: "Mathematics",
@@ -34,7 +34,7 @@ const experts = [
   },
   {
     name: "Expert User 3",
-    email: "expert2@gmail.com",
+    email: "expert2@assignmate.com",
     password,
     role: Role.EXPERT,
     department: "Physics",
@@ -60,7 +60,7 @@ export const seedData = async () => {
       await prisma.user.create({
         data: {
           name: "Admin User",
-          email: "admin@gmail.com",
+          email: "admin@assignmate.com",
           password,
           role: Role.ADMIN,
         },
@@ -72,7 +72,7 @@ export const seedData = async () => {
       await prisma.user.create({
         data: {
           name: "Student User",
-          email: "student@gmail.com",
+          email: "student@assignmate.com",
           password,
           role: Role.STUDENT,
           student: {
