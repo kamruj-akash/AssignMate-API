@@ -420,6 +420,26 @@ const refreshToken = async (token: string) => {
   };
 };
 
+// const logoutUser = (refreshToken: string) => {
+//   const verifiedRefreshToken = jwtUtils.verifyToken(
+//     refreshToken,
+//     envConfig.jwt_refresh_secret,
+//   );
+
+//   if (!verifiedRefreshToken.success || !verifiedRefreshToken.data) {
+//     throw new AppError(
+//       httpStatus.UNAUTHORIZED,
+//       envConfig.node_env === "development"
+//         ? verifiedRefreshToken.error
+//         : "Invalid refresh token",
+//     );
+//   }
+
+//   const data = verifiedRefreshToken.data as JwtPayload;
+
+//   redisClient.del(`refreshToken:${data.userId}`);
+// };
+
 export const authService = {
   registerUser,
   verifyRegOtp,

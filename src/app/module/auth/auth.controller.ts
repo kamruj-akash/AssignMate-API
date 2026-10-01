@@ -92,6 +92,18 @@ const refreshToken = catchAsync(async (req, res) => {
   });
 });
 
+const logoutUser = catchAsync(async (req, res) => {
+  // await authService.logoutUser(req.cookies.refreshToken);
+  res.clearCookie("accessToken");
+  res.clearCookie("refreshToken");
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "User logged out successfully.",
+    data: null,
+  });
+});
+
 export const authController = {
   registerUser,
   verifyRegOtp,
@@ -101,4 +113,5 @@ export const authController = {
   getMe,
   googleLogin,
   refreshToken,
+  logoutUser,
 };
