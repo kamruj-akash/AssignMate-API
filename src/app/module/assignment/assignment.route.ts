@@ -41,6 +41,12 @@ router.patch(
   assignmentController.assignmentAction,
 );
 
+router.delete(
+  "/:assignmentId/delete",
+  auth(Role.STUDENT),
+  assignmentController.deleteAssignment,
+);
+
 router.get("/dispute/:assignmentId", auth(Role.ADMIN));
 router.patch("/dispute/:assignmentId/action", auth(Role.ADMIN));
 

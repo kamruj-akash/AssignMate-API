@@ -101,6 +101,20 @@ const assignmentAction = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const deleteAssignment = catchAsync(async (req: Request, res: Response) => {
+  const { assignmentId } = req.params;
+  const result = await assignmentService.deleteAssignment(
+    req.user as RequestUser,
+    assignmentId as string,
+  );
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Assignment deleted successfully",
+    data: result,
+  });
+});
+
 export const assignmentController = {
   createAssignment,
   getOpenAssignments,
@@ -108,4 +122,5 @@ export const assignmentController = {
   submitAssignment,
   getMyAssignments,
   assignmentAction,
+  deleteAssignment,
 };

@@ -525,6 +525,70 @@ const assignmentAction = async (
   );
 };
 
+const deleteAssignment = async (reqUser: RequestUser, assignmentId: string) => {
+  const existUser = await prisma.user.findUnique({
+    where: { id: reqUser.userId, role: Role.STUDENT },
+    include: { student: true },
+  });
+  if (!existUser || !existUser.student) {
+    throw new AppError(httpStatus.NOT_FOUND, "Student profile not found");
+  }
+
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+  });
+  if (!assignment) {
+    throw new AppError(httpStatus.NOT_FOUND, "Assignment not found");
+  }
+  if (assignment.studentId !== existUser.student.id) {
+    throw new AppError(
+      httpStatus.FORBIDDEN,
+      "You are not the owner of this assignment",
+    );
+  }
+  if (assignment.status !== AssignmentStatus.OPEN) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Only open assignments can be deleted",
+    );
+  }
+
+  // payment, escrow and bids cascade on delete, so the OPEN guard has to hold
+  // at write time, not just at read time
+  const deleted = await prisma.assignment.deleteMany({
+    where: {
+      id: assignmentId,
+      studentId: existUser.student.id,
+      status: AssignmentStatus.OPEN,
+      assignedExpertId: null,
+    },
+  });
+  if (deleted.count === 0) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      "Assignment can no longer be deleted",
+    );
+  }
+
+  const attachment = assignment.attachmentUrl as { publicId?: string } | null;
+  if (attachment?.publicId) {
+    // uploaded with resource_type "auto", which isn't stored, so try each type
+    for (const resource_type of ["image", "raw", "video"] as const) {
+      try {
+        const res = await cloudinary.uploader.destroy(attachment.publicId, {
+          resource_type,
+        });
+        if (res.result === "ok") break;
+      } catch (error) {
+        console.error("Failed to delete assignment attachment", error);
+        break;
+      }
+    }
+  }
+
+  return { id: assignmentId };
+};
+
 export const assignmentService = {
   createAssignment,
   getOpenAssignments,
@@ -532,4 +596,5 @@ export const assignmentService = {
   getMyAssignments,
   submitAssignment,
   assignmentAction,
+  deleteAssignment,
 };
