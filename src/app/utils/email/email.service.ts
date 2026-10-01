@@ -17,7 +17,17 @@ import type {
 } from "./email.interface";
 import { emailTemplate } from "./email.template";
 
+const isDevelopment = envConfig.node_env === "development";
+
 const sendEmail = async (payload: ISendEmail) => {
+  // Skip Resend locally; log instead so OTPs stay readable in the server console.
+  if (isDevelopment) {
+    console.info(
+      `[email disabled in development] to=${payload.to} subject="${payload.subject}"\n${payload.text ?? ""}`,
+    );
+    return null;
+  }
+
   const { data, error } = await resendClient.emails.send({
     from: emailSender,
     to: Array.isArray(payload.to) ? payload.to : [payload.to],
