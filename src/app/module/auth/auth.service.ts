@@ -264,11 +264,12 @@ const getMe = async (user: any) => {
   return userData;
 };
 
-const googleLogin = async (googleIdToken: string) => {
+const googleLogin = async ({ idToken }: { idToken: string }) => {
   let googleIdTokenPayload: TokenPayload | undefined;
+
   try {
     const ticket = await googleClient.verifyIdToken({
-      idToken: googleIdToken,
+      idToken,
       audience: envConfig.gClient_id,
     });
     googleIdTokenPayload = ticket.getPayload();

@@ -47,11 +47,7 @@ const loginUser = catchAsync(async (req, res) => {
   const result = await authService.loginUser(req.body);
 
   res.cookie("refreshToken", result.refreshToken, getCookieOptions("refresh"));
-  res.cookie(
-    "accessToken",
-    result.accessToken,
-    getCookieOptions("access"),
-  );
+  res.cookie("accessToken", result.accessToken, getCookieOptions("access"));
 
   sendResponse(res, {
     success: true,
@@ -73,6 +69,8 @@ const getMe = catchAsync(async (req, res) => {
 
 const googleLogin = catchAsync(async (req, res) => {
   const result = await authService.googleLogin(req.body);
+  res.cookie("refreshToken", result.refreshToken, getCookieOptions("refresh"));
+  res.cookie("accessToken", result.accessToken, getCookieOptions("access"));
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,
@@ -83,11 +81,7 @@ const googleLogin = catchAsync(async (req, res) => {
 
 const refreshToken = catchAsync(async (req, res) => {
   const result = await authService.refreshToken(req.cookies.refreshToken);
-  res.cookie(
-    "accessToken",
-    result.accessToken,
-    getCookieOptions("access"),
-  );
+  res.cookie("accessToken", result.accessToken, getCookieOptions("access"));
   res.cookie("refreshToken", result.refreshToken, getCookieOptions("refresh"));
 
   sendResponse(res, {
