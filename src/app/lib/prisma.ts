@@ -16,7 +16,12 @@ const globalForPrisma = globalThis as unknown as {
 
 const prisma =
   globalForPrisma.prisma ??
-  new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+  new PrismaClient({
+    adapter: new PrismaPg({ connectionString }),
+    // Remote pooled DB can take >2s (Prisma's default maxWait) to hand out a
+    // connection, which aborts transactions with P2028.
+    transactionOptions: { maxWait: 10_000, timeout: 15_000 },
+  });
 
 if (envConfig.node_env !== "production") {
   globalForPrisma.prisma = prisma;

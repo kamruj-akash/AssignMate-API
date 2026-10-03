@@ -50,77 +50,58 @@ const initiateCheckout = async (assignmentId: string, user: RequestUser) => {
       "Payment already completed for this assignment",
     );
   }
-  const transaction = await prisma.$transaction(async (tx) => {
-    const bkashResponse = await fetch(
-      `${envConfig.bkash_url}/tokenized/checkout/create`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: idToken as string,
-          "X-App-Key": envConfig.bkash_app_key as string,
-        },
-        body: JSON.stringify({
-          mode: "0011",
-          payerReference: userExist.phoneNo || userExist.email,
-          callbackURL: `${envConfig.api_base_url}/payment/callback/bkash`,
-          amount: assignment.budget,
-          currency: "BDT",
-          intent: "sale",
-          merchantInvoiceNumber: assignment.id,
-        }),
+  const bkashResponse = await fetch(
+    `${envConfig.bkash_url}/tokenized/checkout/create`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: idToken as string,
+        "X-App-Key": envConfig.bkash_app_key as string,
       },
+      body: JSON.stringify({
+        mode: "0011",
+        payerReference: userExist.phoneNo || userExist.email,
+        callbackURL: `${envConfig.api_base_url}/payment/callback/bkash`,
+        amount: assignment.budget,
+        currency: "BDT",
+        intent: "sale",
+        merchantInvoiceNumber: assignment.id,
+      }),
+    },
+  );
+  const bkashResult: any = await bkashResponse.json();
+
+  if (bkashResult.statusCode !== "0000") {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      bkashResult.statusMessage || "bKash payment creation failed",
     );
-    const bkashResult: any = await bkashResponse.json();
+  }
 
-    if (!bkashResult.statusCode || bkashResult.statusCode !== "0000") {
-      throw new Error("Failed to initiate checkout with bKash");
-    }
-    if (existPayment) {
-      await tx.payment.update({
-        where: {
-          assignmentId: assignment.id,
-        },
-        data: {
-          amount: Number(bkashResult.amount),
-          merchantInvoiceNumber: bkashResult.merchantInvoiceNumber,
-          bkashTrxId: bkashResult.paymentID,
-          paymentGateway: PaymentGateway.BKASH,
-          transactionId: bkashResult.paymentID,
-          assignmentId: assignment.id,
-          bkashPaymentId: bkashResult.paymentID,
-          status: PaymentStatus.INITIATED,
-          gatewayResponse: bkashResult,
-        },
-      });
-    } else {
-      await tx.payment.create({
-        data: {
-          amount: Number(bkashResult.amount),
-          merchantInvoiceNumber: bkashResult.merchantInvoiceNumber,
-          bkashTrxId: bkashResult.paymentID,
-          paymentGateway: PaymentGateway.BKASH,
-          transactionId: bkashResult.paymentID,
-          assignmentId: assignment.id,
-          bkashPaymentId: bkashResult.paymentID,
-          status: PaymentStatus.INITIATED,
-          gatewayResponse: bkashResult,
-        },
-      });
-    }
+  const paymentData = {
+    amount: Number(bkashResult.amount),
+    merchantInvoiceNumber: bkashResult.merchantInvoiceNumber,
+    bkashTrxId: bkashResult.paymentID,
+    paymentGateway: PaymentGateway.BKASH,
+    transactionId: bkashResult.paymentID,
+    assignmentId: assignment.id,
+    bkashPaymentId: bkashResult.paymentID,
+    status: PaymentStatus.INITIATED,
+    gatewayResponse: bkashResult,
+  };
 
-    if (bkashResult.statusCode !== "0000") {
-      throw new AppError(
-        httpStatus.BAD_REQUEST,
-        bkashResult.statusMessage || "bKash payment creation failed",
-      );
-    }
+  if (existPayment) {
+    await prisma.payment.update({
+      where: { assignmentId: assignment.id },
+      data: paymentData,
+    });
+  } else {
+    await prisma.payment.create({ data: paymentData });
+  }
 
-    return bkashResult.bkashURL;
-  });
-
-  return transaction;
+  return bkashResult.bkashURL;
 };
 
 const bkashCallback = async (query: Record<string, any>) => {
@@ -148,12 +129,29 @@ const bkashCallback = async (query: Record<string, any>) => {
   const bkashPaymentVerifyResult: any = await bkashPaymentVerifyResponse.json();
   console.log(bkashPaymentVerifyResult);
 
-  if (status === "success") {
-    await prisma.$transaction(async (tx) => {
-      await tx.payment.update({
-        where: {
-          assignmentId: bkashPaymentVerifyResult.merchantInvoiceNumber,
-        },
+  const isCompleted =
+    status === "success" &&
+    bkashPaymentVerifyResult.statusCode === "0000" &&
+    bkashPaymentVerifyResult.transactionStatus === "Completed";
+
+  if (isCompleted) {
+    const assignmentId = bkashPaymentVerifyResult.merchantInvoiceNumber;
+    const redirectUrl = `${envConfig.frontend_url}/assignment/${assignmentId}/result?paymentStatus=success`;
+
+    const existingPayment = await prisma.payment.findUnique({
+      where: { assignmentId },
+    });
+    if (!existingPayment) {
+      throw new AppError(httpStatus.NOT_FOUND, "Payment record not found");
+    }
+    // bKash may hit the callback more than once; don't re-process.
+    if (existingPayment.status === PaymentStatus.PAID) {
+      return { redirectUrl };
+    }
+
+    await prisma.$transaction([
+      prisma.payment.update({
+        where: { assignmentId },
         data: {
           status: PaymentStatus.PAID,
           gatewayResponse: bkashPaymentVerifyResult,
@@ -162,12 +160,9 @@ const bkashCallback = async (query: Record<string, any>) => {
           paidAt: bkashPaymentVerifyResult.paymentExecuteTime,
           payerReference: bkashPaymentVerifyResult.payerReference,
         },
-      });
-
-      await tx.assignment.update({
-        where: {
-          id: bkashPaymentVerifyResult.merchantInvoiceNumber,
-        },
+      }),
+      prisma.assignment.update({
+        where: { id: assignmentId },
         data: {
           status: AssignmentStatus.ASSIGNED,
           escrow: {
@@ -177,8 +172,8 @@ const bkashCallback = async (query: Record<string, any>) => {
             },
           },
         },
-      });
-    });
+      }),
+    ]);
 
     const paidAssignment = await prisma.assignment.findUnique({
       where: { id: bkashPaymentVerifyResult.merchantInvoiceNumber },
@@ -224,12 +219,10 @@ const bkashCallback = async (query: Record<string, any>) => {
       }
     }
 
-    return {
-      redirectUrl: `${envConfig.frontend_url}/assignment/${bkashPaymentVerifyResult.merchantInvoiceNumber}/result?paymentStatus=success`,
-    };
+    return { redirectUrl };
   }
 
-  if (status === "failure") {
+  if (status === "success" || status === "failure") {
     await prisma.payment.update({
       where: {
         assignmentId: bkashPaymentVerifyResult.merchantInvoiceNumber,

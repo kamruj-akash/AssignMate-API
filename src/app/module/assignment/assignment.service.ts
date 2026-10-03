@@ -133,8 +133,6 @@ const getOpenAssignments = async (query: IQuery) => {
 };
 
 const getAssignmentById = async (assignmentId: string) => {
-  // This route is public, so the deliverable and the dispute notes stay out of
-  // it. Owners get the full row from /my-assignments.
   const assignment = await prisma.assignment.findUnique({
     where: { id: assignmentId },
     omit: { submissionUrl: true, disputedReason: true },
@@ -425,6 +423,7 @@ const assignmentAction = async (
     });
     return updatedAssignment;
   }
+  
   if (payload.status === AssignmentStatus.DISPUTED) {
     if (payload.status === AssignmentStatus.DISPUTED && !payload.reason) {
       throw new AppError(
