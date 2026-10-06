@@ -423,19 +423,19 @@ const assignmentAction = async (
     });
     return updatedAssignment;
   }
-  
-  if (payload.status === AssignmentStatus.DISPUTED) {
-    if (payload.status === AssignmentStatus.DISPUTED && !payload.reason) {
+
+  if (payload.status === AssignmentStatus.CANCELLED) {
+    if (!payload.reason?.trim()) {
       throw new AppError(
         httpStatus.BAD_REQUEST,
-        "Reason is required for disputing an assignment",
+        "Reason is required for cancelling an assignment",
       );
     }
     const updatedAssignment = await prisma.assignment.update({
       where: { id: assignmentId },
       data: {
-        status: AssignmentStatus.DISPUTED,
-        disputedReason: payload.reason,
+        status: AssignmentStatus.CANCELLED,
+        disputedReason: payload.reason.trim(),
       },
     });
     return updatedAssignment;
@@ -571,7 +571,6 @@ const deleteAssignment = async (reqUser: RequestUser, assignmentId: string) => {
 
   const attachment = assignment.attachmentUrl as { publicId?: string } | null;
   if (attachment?.publicId) {
-    // uploaded with resource_type "auto", which isn't stored, so try each type
     for (const resource_type of ["image", "raw", "video"] as const) {
       try {
         const res = await cloudinary.uploader.destroy(attachment.publicId, {
