@@ -34,7 +34,24 @@ const getRevenueAnalytics = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getExpertEarnings = catchAsync(async (req: Request, res: Response) => {
+  const query: IQuery = req.query;
+  const result = await escrowService.getExpertEarnings(
+    req.user as RequestUser,
+    query,
+  );
+
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Earnings retrieved successfully",
+    data: result.data,
+    meta: result.meta,
+  });
+});
+
 export const escrowController = {
   getEscrowByAssignmentId,
   getRevenueAnalytics,
+  getExpertEarnings,
 };

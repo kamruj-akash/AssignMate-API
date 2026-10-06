@@ -4,6 +4,7 @@ import { Prisma } from "../../../../prisma/src/generated/prisma/client";
 import {
   AssignmentStatus,
   EscrowStatus,
+  PaymentStatus,
   Role,
 } from "../../../../prisma/src/generated/prisma/enums";
 import type {
@@ -19,6 +20,7 @@ import { emailService } from "../../utils/email/email.service";
 import type {
   IAssignmentActionPayload,
   ICreateAssignment,
+  IResolveCancellationPayload,
 } from "./assignment.interface";
 
 const createAssignment = async (
@@ -367,6 +369,52 @@ const submitAssignment = async (
   );
 };
 
+// moves a HELD escrow to the expert's wallet; returns the credited earnings
+const releaseEscrowToExpert = async (
+  tx: Prisma.TransactionClient,
+  assignmentId: string,
+  expertId: string,
+) => {
+  const getEscrow = await tx.escrow.findUnique({
+    where: { assignmentId: assignmentId },
+  });
+
+  if (!getEscrow) {
+    throw new AppError(httpStatus.NOT_FOUND, "Escrow not found");
+  }
+
+  const expertEarnings = (
+    (Number(getEscrow.totalAmount) * Number(getEscrow.expertEarnings)) /
+    100
+  ).toFixed(2);
+
+  const released = await tx.escrow.updateMany({
+    where: { id: getEscrow.id, status: EscrowStatus.HELD },
+    data: {
+      status: EscrowStatus.RELEASED_TO_EXPERT,
+      disbursedAt: new Date(),
+    },
+  });
+
+  if (released.count === 0) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      "This escrow has already been settled",
+    );
+  }
+
+  await tx.expert.update({
+    where: { id: expertId },
+    data: {
+      walletBalance: {
+        increment: new Prisma.Decimal(expertEarnings),
+      },
+    },
+  });
+
+  return expertEarnings;
+};
+
 const assignmentAction = async (
   reqUser: RequestUser,
   assignmentId: string,
@@ -463,42 +511,11 @@ const assignmentAction = async (
         );
       }
 
-      const getEscrow = await tx.escrow.findUnique({
-        where: { assignmentId: assignmentId },
-      });
-
-      if (!getEscrow) {
-        throw new AppError(httpStatus.NOT_FOUND, "Escrow not found");
-      }
-
-      expertEarnings = (
-        (Number(getEscrow.totalAmount) * Number(getEscrow.expertEarnings)) /
-        100
-      ).toFixed(2);
-
-      const released = await tx.escrow.updateMany({
-        where: { id: getEscrow.id, status: EscrowStatus.HELD },
-        data: {
-          status: EscrowStatus.RELEASED_TO_EXPERT,
-          disbursedAt: new Date(),
-        },
-      });
-
-      if (released.count === 0) {
-        throw new AppError(
-          httpStatus.CONFLICT,
-          "This escrow has already been settled",
-        );
-      }
-
-      await tx.expert.update({
-        where: { id: assignment.assignedExpertId as string },
-        data: {
-          walletBalance: {
-            increment: new Prisma.Decimal(expertEarnings),
-          },
-        },
-      });
+      expertEarnings = await releaseEscrowToExpert(
+        tx,
+        assignmentId,
+        assignment.assignedExpertId as string,
+      );
 
       return tx.assignment.findUnique({ where: { id: assignmentId } });
     });
@@ -587,6 +604,171 @@ const deleteAssignment = async (reqUser: RequestUser, assignmentId: string) => {
   return { id: assignmentId };
 };
 
+// cancelled by the student but escrow still HELD = waiting on an admin decision
+const getCancellationRequests = async (query: IQuery) => {
+  const searchTerm = query.searchTerm || "";
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+
+  const andConditions: AssignmentWhereInput[] = [
+    {
+      status: AssignmentStatus.CANCELLED,
+      escrow: { is: { status: EscrowStatus.HELD } },
+    },
+  ];
+
+  if (searchTerm) {
+    andConditions.push({
+      OR: [
+        { title: { contains: searchTerm, mode: "insensitive" } },
+        {
+          student: {
+            user: { name: { contains: searchTerm, mode: "insensitive" } },
+          },
+        },
+        {
+          assignedExpert: {
+            user: { name: { contains: searchTerm, mode: "insensitive" } },
+          },
+        },
+      ],
+    });
+  }
+
+  const [assignments, total] = await Promise.all([
+    prisma.assignment.findMany({
+      where: { AND: andConditions },
+      include: {
+        student: {
+          select: {
+            id: true,
+            user: { select: { name: true, email: true } },
+          },
+        },
+        assignedExpert: {
+          select: {
+            id: true,
+            university: true,
+            user: { select: { name: true, email: true } },
+          },
+        },
+        escrow: {
+          select: {
+            id: true,
+            totalAmount: true,
+            expertEarnings: true,
+            status: true,
+          },
+        },
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.assignment.count({ where: { AND: andConditions } }),
+  ]);
+
+  return {
+    data: assignments,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
+// APPROVE: cancellation upheld -> DISPUTED, escrow refunded to the student
+// REJECT: cancellation overruled -> COMPLETED, escrow released to the expert
+const resolveCancellation = async (
+  assignmentId: string,
+  payload: IResolveCancellationPayload,
+) => {
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+    include: {
+      assignedExpert: { include: { user: { omit: { password: true } } } },
+    },
+  });
+  if (!assignment) {
+    throw new AppError(httpStatus.NOT_FOUND, "Assignment not found");
+  }
+  if (assignment.status !== AssignmentStatus.CANCELLED) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Only cancelled assignments can be reviewed",
+    );
+  }
+  if (!assignment.assignedExpertId) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "This assignment has no assigned expert",
+    );
+  }
+
+  let expertEarnings = "0.00";
+  const nextStatus =
+    payload.decision === "APPROVE"
+      ? AssignmentStatus.DISPUTED
+      : AssignmentStatus.COMPLETED;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const moved = await tx.assignment.updateMany({
+      where: { id: assignmentId, status: AssignmentStatus.CANCELLED },
+      data: { status: nextStatus },
+    });
+    if (moved.count === 0) {
+      throw new AppError(
+        httpStatus.CONFLICT,
+        "This cancellation has already been reviewed",
+      );
+    }
+
+    if (payload.decision === "APPROVE") {
+      const refunded = await tx.escrow.updateMany({
+        where: { assignmentId, status: EscrowStatus.HELD },
+        data: {
+          status: EscrowStatus.REFUNDED_TO_STUDENT,
+          disbursedAt: new Date(),
+        },
+      });
+      if (refunded.count === 0) {
+        throw new AppError(
+          httpStatus.CONFLICT,
+          "This escrow has already been settled",
+        );
+      }
+      await tx.payment.updateMany({
+        where: { assignmentId, status: PaymentStatus.PAID },
+        data: { status: PaymentStatus.REFUNDED },
+      });
+    } else {
+      expertEarnings = await releaseEscrowToExpert(
+        tx,
+        assignmentId,
+        assignment.assignedExpertId as string,
+      );
+    }
+
+    return tx.assignment.findUnique({ where: { id: assignmentId } });
+  });
+
+  if (payload.decision === "REJECT" && assignment.assignedExpert) {
+    await emailService.sendAssignmentCompleted(
+      assignment.assignedExpert.user.email,
+      {
+        expertName: assignment.assignedExpert.user.name,
+        assignmentId: assignment.id,
+        assignmentTitle: assignment.title,
+        earnings: expertEarnings,
+      },
+    );
+  }
+
+  return result;
+};
+
 export const assignmentService = {
   createAssignment,
   getOpenAssignments,
@@ -595,4 +777,6 @@ export const assignmentService = {
   submitAssignment,
   assignmentAction,
   deleteAssignment,
+  getCancellationRequests,
+  resolveCancellation,
 };

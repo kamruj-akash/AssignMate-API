@@ -25,3 +25,10 @@ export interface IStudentRegisterExpert {
   ratePerAssignment: number;
   bio?: string;
 }
+
+export interface IUpdateExpertProfile {
+  name?: string;
+  phoneNo?: string;
+  bio?: string;
+  ratePerAssignment?: number;
+}

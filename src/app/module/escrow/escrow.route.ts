@@ -3,7 +3,10 @@ import { Role } from "../../../../prisma/src/generated/prisma/enums";
 import { auth } from "../../middleware/authCheck";
 import { queryValidationZod } from "../../middleware/validation";
 import { escrowController } from "./escrow.controller";
-import { RevenueAnalyticsQueryZod } from "./escrow.validations";
+import {
+  ExpertEarningsQueryZod,
+  RevenueAnalyticsQueryZod,
+} from "./escrow.validations";
 
 const router = Router();
 
@@ -17,6 +20,13 @@ router.get(
   auth(Role.ADMIN),
   queryValidationZod(RevenueAnalyticsQueryZod),
   escrowController.getRevenueAnalytics,
+);
+
+router.get(
+  "/expert/earnings",
+  auth(Role.EXPERT),
+  queryValidationZod(ExpertEarningsQueryZod),
+  escrowController.getExpertEarnings,
 );
 
 export const EscrowRoute = router;

@@ -13,6 +13,7 @@ import {
   GetAllExpertsQueryZod,
   RegisterExpertZod,
   StudentRegisterExpertZod,
+  UpdateExpertProfileZod,
   VerifyExpertZod,
 } from "./expert.validation";
 
@@ -47,6 +48,13 @@ router.get(
   auth(Role.ADMIN),
   queryValidationZod(GetAllExpertsQueryZod),
   expertController.getAllExperts,
+);
+
+router.patch(
+  "/profile",
+  auth(Role.EXPERT),
+  dataValidationZod(UpdateExpertProfileZod),
+  expertController.updateMyProfile,
 );
 
 export const ExpertRoute = router;

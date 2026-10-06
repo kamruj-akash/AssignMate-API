@@ -162,15 +162,29 @@ const getMyBids = async (user: RequestUser, query: IQuery) => {
     );
   }
 
+  const status = query.status as BidStatus | undefined;
+  if (status && !Object.values(BidStatus).includes(status)) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Invalid status. Allowed values: ${Object.values(BidStatus).join(", ")}`,
+    );
+  }
+  const where = {
+    expertId: existExpert.expert.id,
+    ...(status && { status }),
+  };
+
   const [bids, total] = await Promise.all([
-    await prisma.assignmentBid.findMany({
-      where: { expertId: existExpert.expert.id },
+    prisma.assignmentBid.findMany({
+      where,
       include: {
         assignment: {
           select: {
             title: true,
             description: true,
             status: true,
+            budget: true,
+            deadline: true,
             createdAt: true,
           },
         },
@@ -179,9 +193,7 @@ const getMyBids = async (user: RequestUser, query: IQuery) => {
       skip: (page - 1) * limit,
       take: limit,
     }),
-    prisma.assignmentBid.count({
-      where: { expertId: existExpert.expert.id },
-    }),
+    prisma.assignmentBid.count({ where }),
   ]);
   const totalPages = Math.ceil(total / limit);
 

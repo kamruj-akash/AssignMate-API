@@ -75,8 +75,22 @@ const getAllExperts = catchAsync(async (req, res) => {
   });
 });
 
+const updateMyProfile = catchAsync(async (req, res) => {
+  const result = await expertService.updateMyProfile(
+    req.user as RequestUser,
+    req.body,
+  );
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message: "Profile updated successfully",
+    data: result,
+  });
+});
+
 export const expertController = {
   getAllExperts,
+  updateMyProfile,
   registerExpert,
   verifyExpert,
   approveExpert,

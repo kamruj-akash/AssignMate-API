@@ -28,3 +28,23 @@ export const submitAssignmentZod = z.object({
     message: "Invalid assignment status",
   }),
 });
+
+export const resolveCancellationZod = z.object({
+  decision: z.enum(["APPROVE", "REJECT"], {
+    message: "Decision must be APPROVE or REJECT",
+  }),
+});
+
+export const getCancellationRequestsQueryZod = z.object({
+  searchTerm: z.string().optional(),
+  page: z.coerce
+    .number()
+    .int()
+    .positive("Page must be a positive number")
+    .optional(),
+  limit: z.coerce
+    .number()
+    .int()
+    .positive("Limit must be a positive number")
+    .optional(),
+});

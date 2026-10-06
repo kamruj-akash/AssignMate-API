@@ -17,6 +17,7 @@ import type {
   IApproveExpert,
   IRegisterExpert,
   IStudentRegisterExpert,
+  IUpdateExpertProfile,
   IVerifyExpert,
 } from "./expert.interface";
 
@@ -437,10 +438,39 @@ const getAllExperts = async (query: IQuery, user: RequestUser) => {
   };
 };
 
+const updateMyProfile = async (
+  user: RequestUser,
+  payload: IUpdateExpertProfile,
+) => {
+  const existUser = await prisma.user.findUnique({
+    where: { id: user.userId, role: Role.EXPERT },
+    include: { expert: true },
+  });
+  if (!existUser || !existUser.expert) {
+    throw new AppError(httpStatus.NOT_FOUND, "Expert profile not found");
+  }
+
+  const { name, phoneNo, bio, ratePerAssignment } = payload;
+
+  return prisma.user.update({
+    where: { id: existUser.id },
+    data: {
+      name,
+      phoneNo,
+      expert: {
+        update: { bio, ratePerAssignment },
+      },
+    },
+    omit: { password: true },
+    include: { expert: true },
+  });
+};
+
 export const expertService = {
   registerExpert,
   verifyExpert,
   approveExpert,
   studentRegisterExpert,
   getAllExperts,
+  updateMyProfile,
 };

@@ -2,10 +2,16 @@ import { Router } from "express";
 import { Role } from "../../../../prisma/src/generated/prisma/enums";
 import { upload } from "../../lib/multer";
 import { auth } from "../../middleware/authCheck";
-import { multipartDataValidationZod } from "../../middleware/validation";
+import {
+  dataValidationZod,
+  multipartDataValidationZod,
+  queryValidationZod,
+} from "../../middleware/validation";
 import { assignmentController } from "./assignment.controller";
 import {
   CreateAssignmentZod,
+  getCancellationRequestsQueryZod,
+  resolveCancellationZod,
   submitAssignmentZod,
 } from "./assignment.validations";
 
@@ -47,7 +53,17 @@ router.delete(
   assignmentController.deleteAssignment,
 );
 
-router.get("/dispute/:assignmentId", auth(Role.ADMIN));
-router.patch("/dispute/:assignmentId/action", auth(Role.ADMIN));
+router.get(
+  "/admin/cancellations",
+  auth(Role.ADMIN),
+  queryValidationZod(getCancellationRequestsQueryZod),
+  assignmentController.getCancellationRequests,
+);
+router.patch(
+  "/admin/cancellations/:assignmentId/resolve",
+  auth(Role.ADMIN),
+  dataValidationZod(resolveCancellationZod),
+  assignmentController.resolveCancellation,
+);
 
 export const AssignmentRoutes = router;

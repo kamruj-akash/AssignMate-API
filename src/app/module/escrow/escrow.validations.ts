@@ -15,3 +15,22 @@ export const RevenueAnalyticsQueryZod = z
       path: ["from"],
     },
   );
+
+export const ExpertEarningsQueryZod = z.object({
+  status: z
+    .enum(
+      ["HELD", "RELEASED_TO_EXPERT", "REFUNDED_TO_STUDENT"],
+      "Status must be HELD, RELEASED_TO_EXPERT or REFUNDED_TO_STUDENT",
+    )
+    .optional(),
+  page: z.coerce
+    .number()
+    .int()
+    .positive("Page must be a positive number")
+    .optional(),
+  limit: z.coerce
+    .number()
+    .int()
+    .positive("Limit must be a positive number")
+    .optional(),
+});

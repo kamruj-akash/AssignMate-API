@@ -115,6 +115,37 @@ const deleteAssignment = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getCancellationRequests = catchAsync(
+  async (req: Request, res: Response) => {
+    const query: IQuery = req.query;
+    const result = await assignmentService.getCancellationRequests(query);
+    sendResponse(res, {
+      success: true,
+      statusCode: httpStatus.OK,
+      message: "Cancellation requests retrieved successfully",
+      data: result.data,
+      meta: result.meta,
+    });
+  },
+);
+
+const resolveCancellation = catchAsync(async (req: Request, res: Response) => {
+  const { assignmentId } = req.params;
+  const assignment = await assignmentService.resolveCancellation(
+    assignmentId as string,
+    req.body,
+  );
+  sendResponse(res, {
+    success: true,
+    statusCode: httpStatus.OK,
+    message:
+      req.body.decision === "APPROVE"
+        ? "Cancellation approved and payment refunded to the student"
+        : "Cancellation rejected and payment released to the expert",
+    data: assignment,
+  });
+});
+
 export const assignmentController = {
   createAssignment,
   getOpenAssignments,
@@ -123,4 +154,6 @@ export const assignmentController = {
   getMyAssignments,
   assignmentAction,
   deleteAssignment,
+  getCancellationRequests,
+  resolveCancellation,
 };

@@ -213,7 +213,77 @@ const getRevenueAnalytics = async (query: IQuery) => {
   };
 };
 
+// every escrow on an assignment the expert won, with the expert's cut per row
+const getExpertEarnings = async (user: RequestUser, query: IQuery) => {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const status = query.status as EscrowStatus | undefined;
+
+  const existUser = await prisma.user.findUnique({
+    where: { id: user.userId, role: Role.EXPERT },
+    include: { expert: true },
+  });
+  if (!existUser || !existUser.expert) {
+    throw new AppError(httpStatus.NOT_FOUND, "Expert profile not found");
+  }
+
+  const where = {
+    assignment: { assignedExpertId: existUser.expert.id },
+    ...(status && { status }),
+  };
+
+  const [escrows, total] = await Promise.all([
+    prisma.escrow.findMany({
+      where,
+      include: {
+        assignment: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            student: { select: { user: { select: { name: true } } } },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.escrow.count({ where }),
+  ]);
+
+  return {
+    data: escrows.map((escrow) => ({
+      id: escrow.id,
+      status: escrow.status,
+      totalAmount: Number(escrow.totalAmount),
+      expertEarningsRate: Number(escrow.expertEarnings),
+      payout: Number(
+        (
+          (Number(escrow.totalAmount) * Number(escrow.expertEarnings)) /
+          100
+        ).toFixed(2),
+      ),
+      disbursedAt: escrow.disbursedAt,
+      createdAt: escrow.createdAt,
+      assignment: {
+        id: escrow.assignment.id,
+        title: escrow.assignment.title,
+        status: escrow.assignment.status,
+        studentName: escrow.assignment.student.user.name,
+      },
+    })),
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
 export const escrowService = {
   getEscrowByAssignmentId,
   getRevenueAnalytics,
+  getExpertEarnings,
 };

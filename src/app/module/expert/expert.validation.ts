@@ -90,3 +90,31 @@ export const GetAllExpertsQueryZod = z.object({
     .enum(["asc", "desc"], "Sort order must be asc or desc")
     .optional(),
 });
+
+// university/department are what the admin verified, so they stay read-only
+export const UpdateExpertProfileZod = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(3, "Name must be at least 3 characters")
+      .max(255, "Name must be at most 255 characters")
+      .optional(),
+    phoneNo: z
+      .string()
+      .trim()
+      .regex(/^\+?[0-9]{7,15}$/, "Phone number must be 7-15 digits")
+      .optional(),
+    bio: z
+      .string()
+      .trim()
+      .max(1000, "Bio must be at most 1000 characters")
+      .optional(),
+    ratePerAssignment: z
+      .number("Rate per assignment must be a number")
+      .positive("Rate per assignment must be greater than 0")
+      .optional(),
+  })
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Provide at least one field to update",
+  });

@@ -11,3 +11,7 @@ export interface IAssignmentActionPayload {
   status: AssignmentStatus;
   reason?: string;
 }
+
+export interface IResolveCancellationPayload {
+  decision: "APPROVE" | "REJECT";
+}
