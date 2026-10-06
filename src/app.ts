@@ -5,6 +5,7 @@ import express, {
   type Request,
   type Response,
 } from "express";
+import { ensureRedis } from "./app/config/redis";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
 import { AnalyticsRoute } from "./app/module/analytics/analytics.route";
@@ -27,6 +28,14 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
+app.use(async (_req, _res, next) => {
+  try {
+    await ensureRedis();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Routes
 app.use("/api/v1/auth", AuthRoute);

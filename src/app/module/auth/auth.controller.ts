@@ -94,8 +94,10 @@ const refreshToken = catchAsync(async (req, res) => {
 
 const logoutUser = catchAsync(async (req, res) => {
   // await authService.logoutUser(req.cookies.refreshToken);
-  res.clearCookie("accessToken");
-  res.clearCookie("refreshToken");
+  // Must match the options the cookies were set with (domain especially), or
+  // the browser keeps them.
+  res.clearCookie("accessToken", getCookieOptions("access"));
+  res.clearCookie("refreshToken", getCookieOptions("refresh"));
   sendResponse(res, {
     success: true,
     statusCode: httpStatus.OK,

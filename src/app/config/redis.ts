@@ -13,3 +13,16 @@ export const redisClient = createClient({ url: envConfig.redis_url });
 redisClient.on("error", (err) => {
   console.error("Redis client error:", err);
 });
+
+// On Vercel only app.ts is loaded (server.ts never runs), so the connection is
+// opened lazily on the first request and reused while the instance stays warm.
+// isOpen (not isReady) so a client that is mid-reconnect isn't connected twice.
+let connecting: Promise<unknown> | null = null;
+
+export const ensureRedis = async () => {
+  if (redisClient.isOpen) return;
+  connecting ??= redisClient.connect().finally(() => {
+    connecting = null;
+  });
+  await connecting;
+};

@@ -13,6 +13,9 @@ export const getCookieOptions = (type: TokenType): CookieOptions => {
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? "none" : "lax",
+    // Without a Domain the cookie is host-only on api.<site>, so the frontend's
+    // proxy.ts on <site> can never read it. Unset locally (localhost).
+    ...(envConfig.cookie_domain && { domain: envConfig.cookie_domain }),
     maxAge: type === "access" ? ACCESS_TOKEN_MAX_AGE : REFRESH_TOKEN_MAX_AGE,
   };
 };
