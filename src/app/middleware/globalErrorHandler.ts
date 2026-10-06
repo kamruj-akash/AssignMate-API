@@ -12,9 +12,9 @@ export const globalErrorHandler = async (
 ) => {
   const isProduction = envConfig.node_env === "production";
 
-  if (!isProduction) {
-    console.log("Error from Global Error Handler", err);
-  }
+  // Always log server-side: in production the response hides 5xx details, so
+  // this is the only place the real cause shows up (e.g. Vercel runtime logs).
+  console.error("Error from Global Error Handler", err);
 
   let statusCode: number = httpStatus.INTERNAL_SERVER_ERROR;
   let errorMessage = err.message || "Internal Server Error";
